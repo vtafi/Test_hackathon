@@ -113,9 +113,18 @@ export const useHereMap = (apiKey, mapContainerRef) => {
    * Get routing service
    */
   const getRoutingService = useCallback(() => {
-    if (!platform.current) return null;
+    if (!platform.current) {
+      console.error('Platform not initialized');
+      return null;
+    }
 
-    return platform.current.getRoutingService(null, 8);
+    try {
+      // HERE Maps Platform API v8 sử dụng router trực tiếp
+      return platform.current.getRoutingService(null, 8);
+    } catch (err) {
+      console.error('Error getting routing service:', err);
+      return null;
+    }
   }, []);
 
   /**

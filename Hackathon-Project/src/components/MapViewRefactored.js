@@ -301,10 +301,8 @@ const MapViewRefactored = ({ places, apiKey, floodZones = [] }) => {
 
   /**
    * Toggle routing mode
-   * ⚠️ ĐANG TẮT - Chức năng routing tạm thời bị comment
    */
   const toggleRoutingMode = useCallback(() => {
-    /* COMMENTED - ROUTING FEATURE
     const newMode = !routingMode;
     setRoutingMode(newMode);
 
@@ -318,6 +316,7 @@ const MapViewRefactored = ({ places, apiKey, floodZones = [] }) => {
         })
         .catch((error) => {
           console.error('Failed to get location:', error);
+          alert('⚠️ Không thể lấy vị trí của bạn. Vui lòng cho phép truy cập vị trí trong trình duyệt.');
         });
     } else {
       // Tắt routing - clear all
@@ -327,11 +326,7 @@ const MapViewRefactored = ({ places, apiKey, floodZones = [] }) => {
         routeGroup.current = null;
       }
     }
-    */
-    alert(
-      "⚠️ Tính năng dẫn đường tạm thời bị tắt để phát triển hệ thống đăng nhập"
-    );
-  }, []);
+  }, [routingMode, requestLocation, setRouteStart, setCenterAndZoom, clearRoute, removeObject]);
 
   /**
    * Handle clear route
@@ -349,11 +344,8 @@ const MapViewRefactored = ({ places, apiKey, floodZones = [] }) => {
   }, [clearRoute, removeObject, userLocation, setRouteStart]);
 
   // ========== MAP CLICK HANDLER ==========
-  // ⚠️ COMMENTED - Routing feature disabled
 
-  useEffect(
-    () => {
-      /* COMMENTED - ROUTING FEATURE
+  useEffect(() => {
     if (!mapReady || !map || !routingMode) return;
 
     const handleMapClick = (evt) => {
@@ -395,24 +387,21 @@ const MapViewRefactored = ({ places, apiKey, floodZones = [] }) => {
 
     const cleanup = addEventListener('tap', handleMapClick);
     return cleanup;
-    */
-    },
-    [
-      // mapReady,
-      // map,
-      // routingMode,
-      // routeStart,
-      // routeEnd,
-      // userLocation,
-      // allRoutes,
-      // setRouteStart,
-      // setRouteEnd,
-      // calculateRoute,
-      // handleClearRoute,
-      // addEventListener,
-      // screenToGeo,
-    ]
-  );
+  }, [
+    mapReady,
+    map,
+    routingMode,
+    routeStart,
+    routeEnd,
+    userLocation,
+    allRoutes,
+    setRouteStart,
+    setRouteEnd,
+    calculateRoute,
+    handleClearRoute,
+    addEventListener,
+    screenToGeo,
+  ]);
 
   // ========== RENDER ==========
 
@@ -439,6 +428,8 @@ const MapViewRefactored = ({ places, apiKey, floodZones = [] }) => {
         floodZonesCount={floodZones?.length || 0}
         onToggleWeatherOverlay={setWeatherOverlayVisible}
         weatherOverlayVisible={weatherOverlayVisible}
+        onToggleRouting={toggleRoutingMode}
+        routingEnabled={routingMode}
       />
 
       {/* Rainfall Legend - Only show when weather overlay is visible */}
@@ -447,16 +438,15 @@ const MapViewRefactored = ({ places, apiKey, floodZones = [] }) => {
       {/* Flood Legend - Only show when flood zones are visible */}
       {floodZonesVisible && <FloodLegend isVisible={floodZonesVisible} />}
 
-      {/* Routing Controls - COMMENTED FOR PERSONALIZATION DEVELOPMENT */}
-      {/* 
-      <div className="routing-controls">
-        <RouteControls
-          routingMode={routingMode}
-          onToggle={toggleRoutingMode}
-          locationPermission={locationPermission}
-        />
+      {/* Routing Controls - Enabled for flood-aware navigation */}
+      {routingMode && (
+        <div className="routing-controls">
+          <RouteControls
+            routingMode={routingMode}
+            onToggle={toggleRoutingMode}
+            locationPermission={locationPermission}
+          />
 
-        {routingMode && (
           <div className="routing-instructions">
             <RouteHint
               userLocation={userLocation}
@@ -472,9 +462,8 @@ const MapViewRefactored = ({ places, apiKey, floodZones = [] }) => {
             />
             <RouteInfo routeInfo={routeInfo} onClear={handleClearRoute} />
           </div>
-        )}
-      </div>
-      */}
+        </div>
+      )}
     </div>
   );
 };
