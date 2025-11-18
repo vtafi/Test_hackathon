@@ -1,5 +1,12 @@
 import React, { useState, useEffect } from "react";
-import { BrowserRouter as Router, Routes, Route, Navigate, Link, useNavigate } from "react-router-dom";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+  Link,
+  useNavigate,
+} from "react-router-dom";
 import "./App.css";
 import MapViewRefactored from "./components/MapViewRefactored";
 import WeatherWidget from "./components/WeatherWidget";
@@ -7,6 +14,7 @@ import WeatherDetailPage from "./pages/WeatherDetailPage";
 import WeatherDropdown from "./components/WeatherDropdown";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
+import Profile from "./pages/Profile";
 import authService from "./services/authService";
 import floodData from "./data/floodProneAreas.json";
 import GradientTabs from "./components/GradientTabs";
@@ -14,19 +22,52 @@ import UserDropdown from "./components/UserDropdown";
 
 // Icons cho GradientTabs
 const MapIcon = ({ className }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+  >
     <path d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
   </svg>
 );
 
 const WeatherIcon = ({ className }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+  >
     <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z" />
   </svg>
 );
 
 const LoginIcon = ({ className }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+  >
     <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
     <polyline points="10 17 15 12 10 7" />
     <line x1="15" x2="3" y1="12" y2="12" />
@@ -35,14 +76,14 @@ const LoginIcon = ({ className }) => (
 
 // Protected Route Component
 const ProtectedRoute = ({ children, user }) => {
-  console.log('🔒 ProtectedRoute check - User:', user ? user.email : 'NULL');
-  
+  console.log("🔒 ProtectedRoute check - User:", user ? user.email : "NULL");
+
   if (!user) {
-    console.log('⛔ No user - Redirecting to /login');
+    console.log("⛔ No user - Redirecting to /login");
     return <Navigate to="/login" replace />;
   }
-  
-  console.log('✅ User authenticated - Rendering protected content');
+
+  console.log("✅ User authenticated - Rendering protected content");
   return children;
 };
 
@@ -61,13 +102,13 @@ const Navigation = ({ user, onLogout }) => {
     };
 
     if (weatherDropdownOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener("mousedown", handleClickOutside);
       return () => {
-        document.removeEventListener('mousedown', handleClickOutside);
+        document.removeEventListener("mousedown", handleClickOutside);
       };
     }
   }, [weatherDropdownOpen]);
-  
+
   if (user) {
     // Nếu đã login: Hiển thị tabs + user dropdown
     const tabs = [
@@ -97,15 +138,15 @@ const Navigation = ({ user, onLogout }) => {
 
     return (
       <div className="navigation-wrapper-with-user" ref={dropdownRef}>
-        <GradientTabs 
-          tabs={tabs} 
+        <GradientTabs
+          tabs={tabs}
           onChange={handleTabChange}
           activeTabId="map"
         />
         <div className="user-dropdown-wrapper">
           <UserDropdown user={user} onLogout={onLogout} />
         </div>
-        
+
         {/* Weather Dropdown */}
         {weatherDropdownOpen && (
           <div className="weather-dropdown-container">
@@ -153,12 +194,12 @@ const Navigation = ({ user, onLogout }) => {
 
     return (
       <div className="navigation-wrapper" ref={dropdownRef}>
-        <GradientTabs 
-          tabs={tabs} 
+        <GradientTabs
+          tabs={tabs}
           onChange={handleTabChange}
           activeTabId="map"
         />
-        
+
         {/* Weather Dropdown */}
         {weatherDropdownOpen && (
           <div className="weather-dropdown-container">
@@ -184,15 +225,15 @@ function App() {
 
   // 🔐 Theo dõi auth state
   useEffect(() => {
-    console.log('🔍 Checking auth state...');
+    console.log("🔍 Checking auth state...");
     const unsubscribe = authService.onAuthChange((currentUser) => {
-      console.log('📊 Auth state changed:', currentUser);
+      console.log("📊 Auth state changed:", currentUser);
       setUser(currentUser);
       setAuthLoading(false);
       if (currentUser) {
-        console.log('✅ User logged in:', currentUser.email);
+        console.log("✅ User logged in:", currentUser.email);
       } else {
-        console.log('❌ No user - should redirect to login');
+        console.log("❌ No user - should redirect to login");
       }
     });
 
@@ -203,7 +244,7 @@ function App() {
   useEffect(() => {
     if (floodData && floodData.floodPrones) {
       const baseZones = floodData.floodPrones;
-      
+
       // ✨ THÊM TỌA ĐỘ TEST - Bạn có thể thêm/xóa tọa độ ở đây
       const customTestZones = [
         {
@@ -211,25 +252,26 @@ function App() {
           name: "🧪 Test Zone - Tọa độ của bạn",
           district: "Ngũ Hành Sơn",
           coords: {
-            lat: 15.982492 ,   // Tọa độ bạn cung cấp
-            lng: 108.250885
+            lat: 15.982492, // Tọa độ bạn cung cấp
+            lng: 108.250885,
           },
           radius: 200,
           riskLevel: "high",
-          description: "Đây là tọa độ test tại 15.982826, 108.253585 - Khu vực ngập cao",
+          description:
+            "Đây là tọa độ test tại 15.982826, 108.253585 - Khu vực ngập cao",
           rainThreshold: {
             yellow: 25,
             orange: 45,
-            red: 70
-          }
+            red: 70,
+          },
         },
         {
           id: "TEST_002",
           name: "🧪 Test Zone - Medium Risk",
           district: "Sơn Trà",
           coords: {
-            lat: 15.985000,
-            lng: 108.255000
+            lat: 15.985,
+            lng: 108.255,
           },
           radius: 100,
           riskLevel: "medium",
@@ -237,28 +279,35 @@ function App() {
           rainThreshold: {
             yellow: 35,
             orange: 60,
-            red: 90
-          }
+            red: 90,
+          },
         },
         {
           id: "TEST_003",
           name: "🧪 Test Zone - Low Risk",
           district: "Ngũ Hành Sơn",
           coords: {
-            lat: 15.980000,
-            lng: 108.251000
+            lat: 15.98,
+            lng: 108.251,
           },
           radius: 100,
           riskLevel: "low",
-          description: "Zone test với rủi ro thấp - màu xanh lá"
-        }
+          description: "Zone test với rủi ro thấp - màu xanh lá",
+        },
       ];
-      
+
       // Gộp data gốc với test zones
       const allZones = [...baseZones, ...customTestZones];
       setFloodZones(allZones);
-      
-      console.log("✅ Loaded flood zones:", baseZones.length, "+ test zones:", customTestZones.length, "= total:", allZones.length);
+
+      console.log(
+        "✅ Loaded flood zones:",
+        baseZones.length,
+        "+ test zones:",
+        customTestZones.length,
+        "= total:",
+        allZones.length
+      );
       console.log("🎯 Test zone của bạn tại:", customTestZones[0].coords);
     }
   }, []);
@@ -309,7 +358,7 @@ function App() {
   if (authLoading) {
     return (
       <div className="App">
-        <div className="loading-container" style={{ height: '100vh' }}>
+        <div className="loading-container" style={{ height: "100vh" }}>
           <div className="loading-spinner"></div>
           <p className="loading-text">Đang kiểm tra đăng nhập...</p>
         </div>
@@ -327,7 +376,7 @@ function App() {
       <Routes>
         {/* Login Page */}
         <Route path="/login" element={<Login />} />
-        
+
         {/* Register Page */}
         <Route path="/register" element={<Register />} />
 
@@ -370,7 +419,11 @@ function App() {
                 {/* Success State - Fullscreen Map */}
                 {!loading && !error && places.length > 0 && (
                   <div className="map-container-fullscreen">
-                    <MapViewRefactored places={places} apiKey={API_KEY} floodZones={floodZones} />
+                    <MapViewRefactored
+                      places={places}
+                      apiKey={API_KEY}
+                      floodZones={floodZones}
+                    />
                   </div>
                 )}
               </main>
@@ -402,13 +455,23 @@ function App() {
         />
 
         {/* Weather Detail Page - PROTECTED */}
-        <Route 
-          path="/weather-detail" 
+        <Route
+          path="/weather-detail"
           element={
             <ProtectedRoute user={user}>
               <WeatherDetailPage />
             </ProtectedRoute>
-          } 
+          }
+        />
+
+        {/* Profile Page - PROTECTED */}
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute user={user}>
+              <Profile />
+            </ProtectedRoute>
+          }
         />
       </Routes>
     </Router>
