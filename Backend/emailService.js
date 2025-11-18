@@ -125,8 +125,37 @@ const sendWeatherUpdate = async (to, weatherData) => {
   return await sendEmail(to, subject, html);
 };
 
+// Hàm gửi email cảnh báo từ AI (nhận subject và htmlBody đã được tạo sẵn)
+const sendAIFloodAlert = async (to, alertContent) => {
+  const { subject, htmlBody } = alertContent;
+  
+  // Wrap HTML content with styling
+  const styledHtml = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f5f5f5;">
+      <div style="background-color: #ff6b6b; color: white; padding: 20px; border-radius: 10px 10px 0 0;">
+        <h1 style="margin: 0;">🚨 ${subject}</h1>
+      </div>
+      
+      <div style="background-color: white; padding: 20px; border-radius: 0 0 10px 10px; border: 1px solid #e0e0e0;">
+        ${htmlBody}
+        
+        <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e0e0e0;">
+          <p style="color: #666; font-size: 14px; margin: 0;">
+            🤖 Email này được tạo tự động bởi AI và gửi từ hệ thống cảnh báo thời tiết.<br/>
+            Thời gian: ${new Date().toLocaleString('vi-VN')}<br/>
+            Vui lòng không trả lời email này.
+          </p>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  return await sendEmail(to, subject, styledHtml);
+};
+
 module.exports = {
   sendEmail,
   sendFloodAlert,
-  sendWeatherUpdate
+  sendWeatherUpdate,
+  sendAIFloodAlert
 };
