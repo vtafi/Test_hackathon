@@ -1,8 +1,17 @@
-const express = require('express');
-const { sendEmail, sendFloodAlert, sendWeatherUpdate, sendAIFloodAlert } = require('./emailService');
-const { GoogleGenerativeAI } = require('@google/generative-ai');
-const { initializeFirebase, listenToFloodSensors, listenToFirestoreFloodSensors } = require('./firebaseAdmin');
-require('dotenv').config();
+const express = require("express");
+const {
+  sendEmail,
+  sendFloodAlert,
+  sendWeatherUpdate,
+  sendAIFloodAlert,
+} = require("./emailService");
+const { GoogleGenerativeAI } = require("@google/generative-ai");
+const {
+  initializeFirebase,
+  listenToFloodSensors,
+  listenToFirestoreFloodSensors,
+} = require("./firebaseAdmin");
+require("dotenv").config();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -13,33 +22,37 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 // ==========================================
 // 🔥 FIREBASE IOT LISTENER - Tự động gửi cảnh báo
 // ==========================================
-if (process.env.ENABLE_FIREBASE_LISTENER === 'true') {
+if (process.env.ENABLE_FIREBASE_LISTENER === "true") {
   try {
     initializeFirebase();
-    
+
     // Lấy danh sách email nhận cảnh báo từ .env
-    const emailRecipients = process.env.ALERT_EMAIL_RECIPIENTS 
-      ? process.env.ALERT_EMAIL_RECIPIENTS.split(',').map(e => e.trim()) 
+    const emailRecipients = process.env.ALERT_EMAIL_RECIPIENTS
+      ? process.env.ALERT_EMAIL_RECIPIENTS.split(",").map((e) => e.trim())
       : [];
 
     if (emailRecipients.length > 0) {
-      console.log(`📧 Email recipients: ${emailRecipients.join(', ')}`);
+      console.log(`📧 Email recipients: ${emailRecipients.join(", ")}`);
     } else {
-      console.log('⚠️ Chưa cấu hình ALERT_EMAIL_RECIPIENTS trong .env');
+      console.log("⚠️ Chưa cấu hình ALERT_EMAIL_RECIPIENTS trong .env");
     }
 
     // Chọn loại database: Realtime Database hoặc Firestore
-    if (process.env.FIREBASE_DB_TYPE === 'firestore') {
+    if (process.env.FIREBASE_DB_TYPE === "firestore") {
       listenToFirestoreFloodSensors(emailRecipients);
     } else {
       listenToFloodSensors(emailRecipients);
     }
   } catch (error) {
-    console.error('❌ Firebase Listener failed:', error.message);
-    console.log('💡 Tip: Tắt Firebase Listener bằng ENABLE_FIREBASE_LISTENER=false nếu không cần');
+    console.error("❌ Firebase Listener failed:", error.message);
+    console.log(
+      "💡 Tip: Tắt Firebase Listener bằng ENABLE_FIREBASE_LISTENER=false nếu không cần"
+    );
   }
 } else {
-  console.log('ℹ️ Firebase Listener tắt. IoT device có thể POST trực tiếp lên /api/generate-flood-alert');
+  console.log(
+    "ℹ️ Firebase Listener tắt. IoT device có thể POST trực tiếp lên /api/generate-flood-alert"
+  );
 }
 
 // Middleware
@@ -47,34 +60,34 @@ app.use(express.json());
 
 // CORS middleware (cho phép frontend gọi API)
 app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Headers', 'Content-Type');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  if (req.method === 'OPTIONS') {
+  res.header("Access-Control-Allow-Origin", "*");
+  res.header("Access-Control-Allow-Headers", "Content-Type");
+  res.header("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  if (req.method === "OPTIONS") {
     return res.sendStatus(200);
   }
   next();
 });
 
 // Route test
-app.get('/', (req, res) => {
-  res.json({ message: 'Email Service API is running!' });
+app.get("/", (req, res) => {
+  res.json({ message: "Email Service API is running!" });
 });
 
 // Route gửi email thông thường (có thể custom)
-app.post('/api/send-email', async (req, res) => {
+app.post("/api/send-email", async (req, res) => {
   try {
     const { to, subject, html, text } = req.body;
 
     if (!to || !subject) {
       return res.status(400).json({
         success: false,
-        message: 'Missing required fields: to, subject'
+        message: "Missing required fields: to, subject",
       });
     }
 
     const result = await sendEmail(to, subject, html, text);
-    
+
     if (result.success) {
       res.json(result);
     } else {
@@ -83,25 +96,25 @@ app.post('/api/send-email', async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: 'Server error',
-      error: error.message
+      message: "Server error",
+      error: error.message,
     });
   }
 });
 
 // Route gửi email test nhanh (chỉ cần email)
-app.post('/api/send-test-email', async (req, res) => {
+app.post("/api/send-test-email", async (req, res) => {
   try {
     const { to } = req.body;
 
     if (!to) {
       return res.status(400).json({
         success: false,
-        message: 'Missing required field: to'
+        message: "Missing required field: to",
       });
     }
 
-    const subject = '🌤️ Test Email từ Hệ thống Cảnh báo Thời tiết';
+    const subject = "🌤️ Test Email từ Hệ thống Cảnh báo Thời tiết";
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
         <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 10px 10px 0 0;">
@@ -110,7 +123,9 @@ app.post('/api/send-test-email', async (req, res) => {
         <div style="background-color: white; padding: 20px; border-radius: 0 0 10px 10px; border: 1px solid #e0e0e0;">
           <p style="font-size: 16px; color: #333;">Xin chào!</p>
           <p style="color: #666;">Đây là email test từ hệ thống cảnh báo thời tiết Đà Nẵng.</p>
-          <p style="color: #666;">Thời gian: ${new Date().toLocaleString('vi-VN')}</p>
+          <p style="color: #666;">Thời gian: ${new Date().toLocaleString(
+            "vi-VN"
+          )}</p>
           <div style="background-color: #e7f3ff; padding: 15px; border-radius: 5px; margin: 20px 0;">
             <p style="margin: 0; color: #1565c0;">✅ Hệ thống email đang hoạt động bình thường!</p>
           </div>
@@ -119,7 +134,7 @@ app.post('/api/send-test-email', async (req, res) => {
     `;
 
     const result = await sendEmail(to, subject, html);
-    
+
     if (result.success) {
       res.json(result);
     } else {
@@ -128,26 +143,26 @@ app.post('/api/send-test-email', async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: 'Server error',
-      error: error.message
+      message: "Server error",
+      error: error.message,
     });
   }
 });
 
 // Route gửi cảnh báo lũ lụt
-app.post('/api/send-flood-alert', async (req, res) => {
+app.post("/api/send-flood-alert", async (req, res) => {
   try {
     const { to, alertData } = req.body;
 
     if (!to) {
       return res.status(400).json({
         success: false,
-        message: 'Missing required field: to'
+        message: "Missing required field: to",
       });
     }
 
     const result = await sendFloodAlert(to, alertData || {});
-    
+
     if (result.success) {
       res.json(result);
     } else {
@@ -156,26 +171,26 @@ app.post('/api/send-flood-alert', async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: 'Server error',
-      error: error.message
+      message: "Server error",
+      error: error.message,
     });
   }
 });
 
 // Route gửi cập nhật thời tiết
-app.post('/api/send-weather-update', async (req, res) => {
+app.post("/api/send-weather-update", async (req, res) => {
   try {
     const { to, weatherData } = req.body;
 
     if (!to) {
       return res.status(400).json({
         success: false,
-        message: 'Missing required field: to'
+        message: "Missing required field: to",
       });
     }
 
     const result = await sendWeatherUpdate(to, weatherData || {});
-    
+
     if (result.success) {
       res.json(result);
     } else {
@@ -184,8 +199,8 @@ app.post('/api/send-weather-update', async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: 'Server error',
-      error: error.message
+      message: "Server error",
+      error: error.message,
     });
   }
 });
@@ -193,12 +208,12 @@ app.post('/api/send-weather-update', async (req, res) => {
 // ==========================================
 // 📊 ĐỌC DỮ LIỆU TỪ FIREBASE - Simple REST API
 // ==========================================
-const { readFirebaseData, writeFirebaseData } = require('./simpleFirebase');
+const { readFirebaseData, writeFirebaseData } = require("./simpleFirebase");
 
 // Endpoint để đọc tất cả sensors từ Firebase
-app.get('/api/firebase/sensors', async (req, res) => {
+app.get("/api/firebase/sensors", async (req, res) => {
   try {
-    const data = await readFirebaseData('sensors/flood');
+    const data = await readFirebaseData("sensors/flood");
     res.json({ success: true, data });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -206,7 +221,7 @@ app.get('/api/firebase/sensors', async (req, res) => {
 });
 
 // Endpoint để đọc 1 sensor cụ thể từ Firebase
-app.get('/api/firebase/sensors/:sensorId', async (req, res) => {
+app.get("/api/firebase/sensors/:sensorId", async (req, res) => {
   try {
     const { sensorId } = req.params;
     const data = await readFirebaseData(`sensors/flood/${sensorId}`);
@@ -217,33 +232,35 @@ app.get('/api/firebase/sensors/:sensorId', async (req, res) => {
 });
 
 // Endpoint: IoT device gọi API này, Backend sẽ đọc Firebase và gửi email
-app.post('/api/check-firebase-and-alert', async (req, res) => {
+app.post("/api/check-firebase-and-alert", async (req, res) => {
   try {
     const { sensorId, to } = req.body;
-    
+
     if (!sensorId) {
-      return res.status(400).json({ 
-        success: false, 
-        error: "Thiếu sensorId" 
+      return res.status(400).json({
+        success: false,
+        error: "Thiếu sensorId",
       });
     }
-    
+
     // Đọc dữ liệu từ Firebase
     const sensorData = await readFirebaseData(`sensors/flood/${sensorId}`);
-    
+
     if (!sensorData) {
       return res.status(404).json({
         success: false,
-        error: "Sensor không tìm thấy trong Firebase"
+        error: "Sensor không tìm thấy trong Firebase",
       });
     }
-    
+
     console.log(`📊 Dữ liệu từ Firebase sensor ${sensorId}:`, sensorData);
-    
+
     // Kiểm tra ngưỡng nguy hiểm
     if (sensorData.current_percent >= 80) {
-      console.log(`🚨 CẢNH BÁO: Ngập lụt nguy hiểm tại ${sensorData.location}!`);
-      
+      console.log(
+        `🚨 CẢNH BÁO: Ngập lụt nguy hiểm tại ${sensorData.location}!`
+      );
+
       // Tạo cảnh báo bằng Gemini AI
       const floodAlertPrompt = `
 Bạn là một hệ thống Trí tuệ Nhân tạo chuyên biệt trong việc tạo ra các thông báo cảnh báo ngập lụt khẩn cấp, có tính hành động. Nhiệm vụ của bạn là phân tích dữ liệu cảm biến thô và tạo ra một EMAIL CẢNH BÁO.
@@ -251,10 +268,12 @@ Bạn là một hệ thống Trí tuệ Nhân tạo chuyên biệt trong việc 
 Dữ liệu quan trắc mới nhất:
 - Vị trí Trạm: ${sensorData.location}
 - Mức ngập HIỆN TẠI (So với ống cống/đường): ${sensorData.current_percent}%
-- Mức ngập trước đó 5 phút: ${sensorData.previous_percent || 'Không có dữ liệu'}%
+- Mức ngập trước đó 5 phút: ${
+        sensorData.previous_percent || "Không có dữ liệu"
+      }%
 - Ngưỡng Nguy hiểm Cao (Đỏ): 80%
 - Ngưỡng Cảnh báo Trung bình (Vàng): 60%
-- Thời điểm đo: ${sensorData.timestamp || new Date().toLocaleString('vi-VN')}
+- Thời điểm đo: ${sensorData.timestamp || new Date().toLocaleString("vi-VN")}
 
 YÊU CẦU ĐẦU RA:
 1. Xác định CẤP ĐỘ NGUY HIỂM (Thấp/Trung bình/Cao) và TỐC ĐỘ Nước TĂNG (Nhanh/Chậm/Ổn định).
@@ -265,17 +284,19 @@ YÊU CẦU ĐẦU RA:
 FORMAT BẮT BUỘC: Trả về **DUY NHẤT** một đối tượng JSON với 2 trường: subject và htmlBody.
 `;
 
-      const model = genAI.getGenerativeModel({ 
-        model: "gemini-2.5-flash"
+      const model = genAI.getGenerativeModel({
+        model: "gemini-2.5-flash",
       });
 
       // Cập nhật prompt để yêu cầu JSON format rõ ràng hơn
-      const jsonPrompt = floodAlertPrompt + `\n\nTrả về ĐÚNG format JSON này (không có markdown, không có \`\`\`json):\n{\n  "subject": "tiêu đề email",\n  "htmlBody": "nội dung HTML"\n}`;
+      const jsonPrompt =
+        floodAlertPrompt +
+        `\n\nTrả về ĐÚNG format JSON này (không có markdown, không có \`\`\`json):\n{\n  "subject": "tiêu đề email",\n  "htmlBody": "nội dung HTML"\n}`;
 
       const result = await model.generateContent(jsonPrompt);
       const response = await result.response;
       const text = response.text();
-      
+
       // Parse JSON từ response (bỏ markdown code block nếu có)
       let generatedAlert;
       try {
@@ -283,7 +304,9 @@ FORMAT BẮT BUỘC: Trả về **DUY NHẤT** một đối tượng JSON với 
         generatedAlert = JSON.parse(text);
       } catch (e) {
         // Nếu có ```json wrapper, bỏ nó đi
-        const jsonMatch = text.match(/```json\n?([\s\S]*?)\n?```/) || text.match(/```\n?([\s\S]*?)\n?```/);
+        const jsonMatch =
+          text.match(/```json\n?([\s\S]*?)\n?```/) ||
+          text.match(/```\n?([\s\S]*?)\n?```/);
         if (jsonMatch) {
           generatedAlert = JSON.parse(jsonMatch[1]);
         } else {
@@ -291,15 +314,19 @@ FORMAT BẮT BUỘC: Trả về **DUY NHẤT** một đối tượng JSON với 
         }
       }
 
-      console.log('✅ Gemini AI generated alert:', generatedAlert.subject);
+      console.log("✅ Gemini AI generated alert:", generatedAlert.subject);
 
       // Gửi email
       const emailTo = to || process.env.ALERT_EMAIL_RECIPIENTS;
       if (emailTo) {
-        const recipients = typeof emailTo === 'string' ? emailTo.split(',') : [emailTo];
-        
+        const recipients =
+          typeof emailTo === "string" ? emailTo.split(",") : [emailTo];
+
         for (const email of recipients) {
-          const emailResult = await sendAIFloodAlert(email.trim(), generatedAlert);
+          const emailResult = await sendAIFloodAlert(
+            email.trim(),
+            generatedAlert
+          );
           if (emailResult.success) {
             console.log(`✉️ Đã gửi email cảnh báo tới ${email.trim()}`);
           }
@@ -310,28 +337,27 @@ FORMAT BẮT BUỘC: Trả về **DUY NHẤT** một đối tượng JSON với 
       await writeFirebaseData(`alerts/${sensorId}/${Date.now()}`, {
         ...generatedAlert,
         sensorData,
-        sentAt: new Date().toISOString()
+        sentAt: new Date().toISOString(),
       });
 
       return res.json({
         success: true,
-        message: 'Alert generated and email sent',
+        message: "Alert generated and email sent",
         alert: generatedAlert,
-        sensorData
+        sensorData,
       });
     } else {
       return res.json({
         success: true,
-        message: 'Water level is safe',
-        sensorData
+        message: "Water level is safe",
+        sensorData,
       });
     }
-    
   } catch (error) {
     console.error("❌ Lỗi:", error);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      error: error.message
+      error: error.message,
     });
   }
 });
@@ -339,41 +365,45 @@ FORMAT BẮT BUỘC: Trả về **DUY NHẤT** một đối tượng JSON với 
 // ==========================================
 // 🔧 ĐỌC CẤU TRÚC IOT (iotData/SENSOR_ROAD hoặc SENSOR_SEWER)
 // ==========================================
-app.post('/api/check-iot-data', async (req, res) => {
+app.post("/api/check-iot-data", async (req, res) => {
   try {
     const { sensorId } = req.body; // "SENSOR_ROAD" hoặc "SENSOR_SEWER"
-    
+
     if (!sensorId) {
       return res.status(400).json({
         success: false,
-        error: "Thiếu sensorId (SENSOR_ROAD hoặc SENSOR_SEWER)"
+        error: "Thiếu sensorId (SENSOR_ROAD hoặc SENSOR_SEWER)",
       });
     }
-    
-    console.log('🔍 FIREBASE_DATABASE_URL:', process.env.FIREBASE_DATABASE_URL);
-    console.log('🔍 Sensor ID:', sensorId);
-    console.log('🔍 Path:', `iotData/${sensorId}`);
-    
+
+    console.log("🔍 FIREBASE_DATABASE_URL:", process.env.FIREBASE_DATABASE_URL);
+    console.log("🔍 Sensor ID:", sensorId);
+    console.log("🔍 Path:", `iotData/${sensorId}`);
+
     // Đọc dữ liệu từ iotData/SENSOR_ROAD hoặc iotData/SENSOR_SEWER
     const iotData = await readFirebaseData(`iotData/${sensorId}`);
-    
+
     if (!iotData) {
       return res.status(404).json({
         success: false,
-        error: "Không tìm thấy dữ liệu IoT trong Firebase"
+        error: "Không tìm thấy dữ liệu IoT trong Firebase",
       });
     }
-    
-    console.log('📊 Dữ liệu IoT từ Firebase:', iotData);
-    
+
+    console.log("📊 Dữ liệu IoT từ Firebase:", iotData);
+
     // Chuyển đổi water_level_cm sang phần trăm (giả sử max = 100cm)
     const maxWaterLevel = 100; // cm
-    const currentPercent = Math.round((iotData.water_level_cm / maxWaterLevel) * 100);
-    
+    const currentPercent = Math.round(
+      (iotData.water_level_cm / maxWaterLevel) * 100
+    );
+
     // Kiểm tra ngưỡng nguy hiểm
     if (currentPercent >= 80 || iotData.flood_status === "DANGER") {
-      console.log(`🚨 CẢNH BÁO: Mức nước ${iotData.water_level_cm}cm (${currentPercent}%)`);
-      
+      console.log(
+        `🚨 CẢNH BÁO: Mức nước ${iotData.water_level_cm}cm (${currentPercent}%)`
+      );
+
       // Tạo cảnh báo bằng Gemini AI
       const floodAlertPrompt = `
 Bạn là một hệ thống Trí tuệ Nhân tạo chuyên biệt trong việc tạo ra các thông báo cảnh báo ngập lụt khẩn cấp, có tính hành động.
@@ -382,7 +412,7 @@ Dữ liệu quan trắc mới nhất:
 - Trạng thái: ${iotData.flood_status}
 - Mức nước hiện tại: ${iotData.water_level_cm} cm (${currentPercent}%)
 - Ngưỡng Nguy hiểm Cao: 80cm
-- Thời điểm đo: ${new Date().toLocaleString('vi-VN')}
+- Thời điểm đo: ${new Date().toLocaleString("vi-VN")}
 
 YÊU CẦU ĐẦU RA:
 1. Xác định CẤP ĐỘ NGUY HIỂM (Thấp/Trung bình/Cao).
@@ -393,17 +423,19 @@ YÊU CẦU ĐẦU RA:
 FORMAT BẮT BUỘC: Trả về **DUY NHẤT** một đối tượng JSON với 2 trường: subject và htmlBody.
 `;
 
-      const model = genAI.getGenerativeModel({ 
-        model: "gemini-2.5-flash"
+      const model = genAI.getGenerativeModel({
+        model: "gemini-2.5-flash",
       });
 
       // Cập nhật prompt để yêu cầu JSON format rõ ràng hơn
-      const jsonPrompt = floodAlertPrompt + `\n\nTrả về ĐÚNG format JSON này (không có markdown, không có \`\`\`json):\n{\n  "subject": "tiêu đề email",\n  "htmlBody": "nội dung HTML"\n}`;
+      const jsonPrompt =
+        floodAlertPrompt +
+        `\n\nTrả về ĐÚNG format JSON này (không có markdown, không có \`\`\`json):\n{\n  "subject": "tiêu đề email",\n  "htmlBody": "nội dung HTML"\n}`;
 
       const result = await model.generateContent(jsonPrompt);
       const response = await result.response;
       const text = response.text();
-      
+
       // Parse JSON từ response (bỏ markdown code block nếu có)
       let generatedAlert;
       try {
@@ -411,7 +443,9 @@ FORMAT BẮT BUỘC: Trả về **DUY NHẤT** một đối tượng JSON với 
         generatedAlert = JSON.parse(text);
       } catch (e) {
         // Nếu có ```json wrapper, bỏ nó đi
-        const jsonMatch = text.match(/```json\n?([\s\S]*?)\n?```/) || text.match(/```\n?([\s\S]*?)\n?```/);
+        const jsonMatch =
+          text.match(/```json\n?([\s\S]*?)\n?```/) ||
+          text.match(/```\n?([\s\S]*?)\n?```/);
         if (jsonMatch) {
           generatedAlert = JSON.parse(jsonMatch[1]);
         } else {
@@ -419,12 +453,15 @@ FORMAT BẮT BUỘC: Trả về **DUY NHẤT** một đối tượng JSON với 
         }
       }
 
-      console.log('✅ Gemini AI generated alert:', generatedAlert.subject);
+      console.log("✅ Gemini AI generated alert:", generatedAlert.subject);
 
       // Gửi email
-      const emailRecipients = process.env.ALERT_EMAIL_RECIPIENTS.split(',');
+      const emailRecipients = process.env.ALERT_EMAIL_RECIPIENTS.split(",");
       for (const email of emailRecipients) {
-        const emailResult = await sendAIFloodAlert(email.trim(), generatedAlert);
+        const emailResult = await sendAIFloodAlert(
+          email.trim(),
+          generatedAlert
+        );
         if (emailResult.success) {
           console.log(`✉️ Đã gửi email cảnh báo tới ${email.trim()}`);
         }
@@ -434,17 +471,17 @@ FORMAT BẮT BUỘC: Trả về **DUY NHẤT** một đối tượng JSON với 
       await writeFirebaseData(`alerts/iot_alert_${Date.now()}`, {
         ...generatedAlert,
         iotData,
-        sentAt: new Date().toISOString()
+        sentAt: new Date().toISOString(),
       });
 
       return res.json({
         success: true,
-        message: 'Alert generated and email sent',
+        message: "Alert generated and email sent",
         alert: generatedAlert,
         iotData: {
           ...iotData,
-          current_percent: currentPercent
-        }
+          current_percent: currentPercent,
+        },
       });
     } else {
       return res.json({
@@ -452,16 +489,15 @@ FORMAT BẮT BUỘC: Trả về **DUY NHẤT** một đối tượng JSON với 
         message: `Water level is safe: ${iotData.water_level_cm}cm (${currentPercent}%)`,
         iotData: {
           ...iotData,
-          current_percent: currentPercent
-        }
+          current_percent: currentPercent,
+        },
       });
     }
-    
   } catch (error) {
     console.error("❌ Lỗi:", error);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      error: error.message
+      error: error.message,
     });
   }
 });
@@ -469,17 +505,18 @@ FORMAT BẮT BUỘC: Trả về **DUY NHẤT** một đối tượng JSON với 
 // ==========================================
 // 🤖 GEMINI AI - Tạo cảnh báo ngập lụt thông minh
 // ==========================================
-app.post('/api/generate-flood-alert', async (req, res) => {
+app.post("/api/generate-flood-alert", async (req, res) => {
   try {
     // Dữ liệu từ cảm biến
     // Example: { "current_percent": 85, "previous_percent": 50, "location": "Cống Phan Đình Phùng", "timestamp": "2025-11-19T01:42:00", "to": "user@example.com" }
-    const { current_percent, previous_percent, location, timestamp, to } = req.body;
+    const { current_percent, previous_percent, location, timestamp, to } =
+      req.body;
 
     // Validate dữ liệu đầu vào
     if (!current_percent || !location) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        error: "Thiếu dữ liệu: current_percent hoặc location" 
+        error: "Thiếu dữ liệu: current_percent hoặc location",
       });
     }
 
@@ -487,7 +524,7 @@ app.post('/api/generate-flood-alert', async (req, res) => {
     if (!process.env.GEMINI_API_KEY) {
       return res.status(500).json({
         success: false,
-        error: "GEMINI_API_KEY chưa được cấu hình trong .env"
+        error: "GEMINI_API_KEY chưa được cấu hình trong .env",
       });
     }
 
@@ -498,10 +535,10 @@ Bạn là một hệ thống Trí tuệ Nhân tạo chuyên biệt trong việc 
 Dữ liệu quan trắc mới nhất:
 - Vị trí Trạm: ${location}
 - Mức ngập HIỆN TẠI (So với ống cống/đường): ${current_percent}%
-- Mức ngập trước đó 5 phút: ${previous_percent || 'Không có dữ liệu'}%
+- Mức ngập trước đó 5 phút: ${previous_percent || "Không có dữ liệu"}%
 - Ngưỡng Nguy hiểm Cao (Đỏ): 80%
 - Ngưỡng Cảnh báo Trung bình (Vàng): 60%
-- Thời điểm đo: ${timestamp || new Date().toLocaleString('vi-VN')}
+- Thời điểm đo: ${timestamp || new Date().toLocaleString("vi-VN")}
 
 YÊU CẦU ĐẦU RA:
 1. Xác định CẤP ĐỘ NGUY HIỂM (Thấp/Trung bình/Cao) và TỐC ĐỘ Nước TĂNG (Nhanh/Chậm/Ổn định).
@@ -513,50 +550,51 @@ FORMAT BẮT BUỘC: Trả về **DUY NHẤT** một đối tượng JSON với 
 `;
 
     // Gọi Gemini AI
-    const model = genAI.getGenerativeModel({ 
-      model: "gemini-1.5-flash",
+    const model = genAI.getGenerativeModel({
+      model: "gemini-1.5-pro",
       generationConfig: {
         responseMimeType: "application/json",
         responseSchema: {
           type: "object",
           properties: {
-            subject: { 
-              type: "string", 
-              description: "Tiêu đề email cảnh báo, ví dụ: 'CẢNH BÁO KHẨN CẤP: LŨ TẠI Cống A'" 
+            subject: {
+              type: "string",
+              description:
+                "Tiêu đề email cảnh báo, ví dụ: 'CẢNH BÁO KHẨN CẤP: LŨ TẠI Cống A'",
             },
-            htmlBody: { 
-              type: "string", 
-              description: "Nội dung email đã được định dạng HTML" 
-            }
+            htmlBody: {
+              type: "string",
+              description: "Nội dung email đã được định dạng HTML",
+            },
           },
-          required: ["subject", "htmlBody"]
-        }
-      }
+          required: ["subject", "htmlBody"],
+        },
+      },
     });
 
     const result = await model.generateContent(floodAlertPrompt);
     const response = await result.response;
     const generatedAlert = JSON.parse(response.text());
 
-    console.log('✅ Gemini AI generated alert:', generatedAlert.subject);
+    console.log("✅ Gemini AI generated alert:", generatedAlert.subject);
 
     // Nếu có email, gửi luôn
     if (to) {
       const emailResult = await sendAIFloodAlert(to, generatedAlert);
-      
+
       if (emailResult.success) {
         return res.json({
           success: true,
-          message: 'AI alert generated and email sent successfully',
+          message: "AI alert generated and email sent successfully",
           alert: generatedAlert,
-          emailResult: emailResult
+          emailResult: emailResult,
         });
       } else {
         return res.json({
           success: true,
-          message: 'AI alert generated but email failed',
+          message: "AI alert generated but email failed",
           alert: generatedAlert,
-          emailError: emailResult.error
+          emailError: emailResult.error,
         });
       }
     }
@@ -564,21 +602,24 @@ FORMAT BẮT BUỘC: Trả về **DUY NHẤT** một đối tượng JSON với 
     // Không có email, chỉ trả về nội dung AI đã tạo
     res.json({
       success: true,
-      alert: generatedAlert
+      alert: generatedAlert,
     });
-
   } catch (error) {
     console.error("❌ Lỗi gọi Gemini API:", error);
-    
+
     // Trả về cảnh báo dự phòng nếu AI lỗi
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
       error: "Không thể tạo cảnh báo bằng AI",
       details: error.message,
       fallback: {
         subject: "⚠️ CẢNH BÁO NGẬP LỤT KHẨN CẤP",
-        htmlBody: `<b>Cảnh báo ngập lụt tại ${req.body.location || 'khu vực của bạn'}</b><br><br>Mức ngập: ${req.body.current_percent}%<br><br>Vui lòng theo dõi tình hình và giữ an toàn.`
-      }
+        htmlBody: `<b>Cảnh báo ngập lụt tại ${
+          req.body.location || "khu vực của bạn"
+        }</b><br><br>Mức ngập: ${
+          req.body.current_percent
+        }%<br><br>Vui lòng theo dõi tình hình và giữ an toàn.`,
+      },
     });
   }
 });
