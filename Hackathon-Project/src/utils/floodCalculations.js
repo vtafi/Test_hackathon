@@ -249,3 +249,88 @@ export const filterFloodZonesByRisk = (
   if (!floodZones || floodZones.length === 0) return [];
   return floodZones.filter((zone) => riskLevels.includes(zone.riskLevel));
 };
+
+/**
+ * Lọc vùng ngập GẦN route (trong bán kính maxDistance)
+ * Dùng khi có NHIỀU vùng ngập (>10) để tối ưu
+ * @param {Array} floodZones - Danh sách flood zones
+ * @param {Object} start - Điểm xuất phát {lat, lng}
+ * @param {Object} end - Điểm đích {lat, lng}
+ * @param {number} maxDistance - Khoảng cách tối đa từ đường thẳng start-end (meters)
+ * @returns {Array} Flood zones gần route
+ */
+export const filterFloodZonesNearRoute = (
+  floodZones,
+  start,
+  end,
+  maxDistance = 5000
+) => {
+  if (!floodZones || floodZones.length === 0 || !start || !end) {
+    return floodZones || [];
+  }
+
+  // Tính điểm giữa của route
+  const midLat = (start.lat + end.lat) / 2;
+  const midLng = (start.lng + end.lng) / 2;
+  const midPoint = { lat: midLat, lng: midLng };
+
+  // Tính bán kính route (khoảng cách từ điểm giữa đến điểm xa nhất)
+  const routeRadius = Math.max(
+    calculateDistance(midLat, midLng, start.lat, start.lng),
+    calculateDistance(midLat, midLng, end.lat, end.lng)
+  );
+
+  // Lọc vùng ngập trong vùng ảnh hưởng
+  return floodZones.filter((zone) => {
+    const zoneLat = zone.coords?.lat || zone.lat;
+    const zoneLng = zone.coords?.lng || zone.lng;
+    const distanceFromCenter = calculateDistance(
+      midLat,
+      midLng,
+      zoneLat,
+      zoneLng
+    );
+
+    // Chỉ lấy vùng ngập trong bán kính route + maxDistance
+    return distanceFromCenter <= routeRadius + maxDistance;
+  });
+};
+
+/**
+ * Lọc thông minh: Kết hợp risk level + khoảng cách + giới hạn 10 vùng
+ * @param {Array} floodZones - Danh sách flood zones
+ * @param {Object} start - Điểm xuất phát
+ * @param {Object} end - Điểm đích
+ * @param {Array} riskLevels - Các mức độ risk cần tránh
+ * @param {number} maxAreas - Số vùng tối đa (default: 10)
+ * @returns {Array} Top vùng ngập cần tránh
+ */
+export const selectFloodZonesToAvoid = (
+  floodZones,
+  start,
+  end,
+  riskLevels = ["high", "medium", "low"],
+  maxAreas = 10
+) => {
+  if (!floodZones || floodZones.length === 0) return [];
+
+  // Bước 1: Lọc theo risk level
+  let filtered = filterFloodZonesByRisk(floodZones, riskLevels);
+
+  // Bước 2: Nếu >20 vùng, lọc theo khoảng cách (chỉ lấy vùng gần route)
+  if (filtered.length > 20) {
+    filtered = filterFloodZonesNearRoute(filtered, start, end, 3000);
+    console.log(
+      `📍 Lọc vùng ngập gần route: ${floodZones.length} → ${filtered.length} vùng`
+    );
+  }
+
+  // Bước 3: Sắp xếp theo ưu tiên: high > medium > low
+  const sortedZones = [...filtered].sort((a, b) => {
+    const riskOrder = { high: 3, medium: 2, low: 1 };
+    return (riskOrder[b.riskLevel] || 0) - (riskOrder[a.riskLevel] || 0);
+  });
+
+  // Bước 4: Chỉ lấy top 10 vùng
+  return sortedZones.slice(0, maxAreas);
+};
