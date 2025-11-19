@@ -71,13 +71,13 @@ export const getFloodZonesAtPoint = (lat, lng, floodZones) => {
  * Kiểm tra route có đi qua các flood zones không
  * @param {string} polyline - Flexible polyline của route
  * @param {Array} floodZones - Danh sách flood zones
- * @param {number} sampleInterval - Số điểm sample (default: 50)
+ * @param {number} sampleInterval - Số điểm sample (default: 5 - rất chi tiết)
  * @returns {Array} Danh sách các flood zones mà route đi qua
  */
 export const checkRouteFloodIntersection = (
   polyline,
   floodZones,
-  sampleInterval = 50
+  sampleInterval = 5
 ) => {
   if (!window.H || !polyline || !floodZones || floodZones.length === 0) {
     return [];
@@ -88,7 +88,8 @@ export const checkRouteFloodIntersection = (
     const coords = lineString.getLatLngAltArray();
     const affectedZonesSet = new Set();
 
-    // Sample points dọc theo route
+    // Sample points DÀY ĐẶC dọc theo route để không bỏ sót vùng ngập nhỏ
+    // sampleInterval = 5 → check ~mỗi 50-100m
     for (let i = 0; i < coords.length; i += 3 * sampleInterval) {
       const lat = coords[i];
       const lng = coords[i + 1];
@@ -195,7 +196,7 @@ export const formatFloodZones = (zones) => {
  */
 export const convertFloodZonesToAvoidAreas = (
   floodZones,
-  bufferPercent = 20
+  bufferMeters = 100
 ) => {
   if (!floodZones || floodZones.length === 0) return "";
 
@@ -213,12 +214,10 @@ export const convertFloodZonesToAvoidAreas = (
   const bboxes = zonesToAvoid.map((zone) => {
     const lat = zone.coords?.lat || zone.lat;
     const lng = zone.coords?.lng || zone.lng;
-    const radius = zone.radius || 500; // meters
+    const radius = zone.radius || 300; // meters - mặc định 300m nếu không có radius
 
-    // Thêm buffer để tránh xa hơn
-    const bufferedRadius = radius * (1 + bufferPercent / 100);
-
-    // Tính bounding box (xấp xỉ)
+    // Thêm buffer cố định (100m)
+    const bufferedRadius = radius + bufferMeters; // Tính bounding box (xấp xỉ)
     // 1 degree latitude ≈ 111km
     // 1 degree longitude ≈ 111km * cos(latitude)
     const latDelta = bufferedRadius / 1000 / 111; // degrees

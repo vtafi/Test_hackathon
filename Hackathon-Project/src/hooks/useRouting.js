@@ -102,7 +102,7 @@ export const useRouting = (getRoutingService, floodZones) => {
       if (avoidFloods && zonesToAvoid.length > 0) {
         const avoidAreasString = convertFloodZonesToAvoidAreas(
           zonesToAvoid,
-          ROUTING_CONFIG.floodBufferPercent
+          ROUTING_CONFIG.floodBufferMeters
         );
         if (avoidAreasString) {
           routingParameters["avoid[areas]"] = avoidAreasString;
@@ -112,7 +112,7 @@ export const useRouting = (getRoutingService, floodZones) => {
             } vùng ngập (${ROUTING_CONFIG.avoidRiskLevels.join(", ")})`
           );
           console.log(
-            `   Buffer: +${ROUTING_CONFIG.floodBufferPercent}% để an toàn`
+            `   Buffer: +${ROUTING_CONFIG.floodBufferMeters}m để an toàn`
           );
         }
       } else {

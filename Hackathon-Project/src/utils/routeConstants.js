@@ -64,7 +64,8 @@ export const ROUTING_CONFIG = {
   routingMode: "fast",
   returnValues: "polyline,summary,actions,instructions",
   avoidFloodZones: true, // Chủ động tránh vùng ngập
-  floodBufferPercent: 50, // Buffer thêm 50% để tránh XA vùng ngập (500m -> 750m)
+  floodBufferPercent: 0, // Buffer cố định 100m (tính trong convertFloodZonesToAvoidAreas)
+  floodBufferMeters: 100, // Buffer cố định 100m
   avoidRiskLevels: ["high", "medium", "low"], // Tránh TẤT CẢ vùng ngập
 };
 

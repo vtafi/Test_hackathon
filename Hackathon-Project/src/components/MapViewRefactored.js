@@ -414,9 +414,7 @@ const MapViewRefactored = ({ places, apiKey, floodZones = [] }) => {
     handleClearRoute,
     addEventListener,
     screenToGeo,
-  ]);
-
-  // ========== RENDER ==========
+  ]); // ========== RENDER ==========
 
   if (!apiKey) {
     return (
