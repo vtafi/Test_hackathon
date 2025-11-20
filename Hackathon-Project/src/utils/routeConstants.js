@@ -60,13 +60,56 @@ export const MAP_CONFIG = {
 export const ROUTING_CONFIG = {
   maxAlternatives: 6, // HERE API v8 max = 6
   maxAvoidAreas: 10,
-  transportMode: "car",
+  transportMode: "car", // Default mode
   routingMode: "fast",
   returnValues: "polyline,summary,actions,instructions",
   avoidFloodZones: true, // Chủ động tránh vùng ngập
   floodBufferPercent: 0, // Buffer cố định 100m (tính trong convertFloodZonesToAvoidAreas)
   floodBufferMeters: 100, // Buffer cố định 100m
   avoidRiskLevels: ["high", "medium", "low"], // Tránh TẤT CẢ vùng ngập
+};
+
+/**
+ * Transport Modes Configuration
+ * HERE API v8 transport modes
+ */
+export const TRANSPORT_MODES = {
+  car: {
+    id: "car",
+    apiValue: "car",
+    icon: "🚗",
+    label: "Ô tô",
+    routingMode: "fast",
+    avoidFloods: true, // Tránh ngập
+    enabled: true,
+  },
+  pedestrian: {
+    id: "pedestrian",
+    apiValue: "pedestrian",
+    icon: "🚶",
+    label: "Đi bộ",
+    routingMode: "short", // Đi bộ ưu tiên đường ngắn
+    avoidFloods: true, // Vẫn nên tránh ngập
+    enabled: true,
+  },
+  bicycle: {
+    id: "bicycle",
+    apiValue: "bicycle",
+    icon: "🚴",
+    label: "Xe đạp",
+    routingMode: "fast",
+    avoidFloods: true, // Xe đạp cũng nên tránh ngập
+    enabled: true,
+  },
+  scooter: {
+    id: "scooter",
+    apiValue: "scooter", // HERE API hỗ trợ 'scooter' (xe tay ga/xe máy)
+    icon: "🛵",
+    label: "Xe máy",
+    routingMode: "fast",
+    avoidFloods: true, // Xe máy nên tránh ngập
+    enabled: true, // Hỗ trợ đầy đủ
+  },
 };
 
 /**

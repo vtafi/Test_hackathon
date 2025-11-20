@@ -32,6 +32,7 @@ import RouteAlternatives from "./MapView/components/RouteAlternatives";
 import RouteInfo from "./MapView/components/RouteInfo";
 import FloodWarning from "./MapView/components/FloodWarning";
 import RouteHint from "./MapView/components/RouteHint";
+import RouteSearchPanel from "./RouteSearchPanel";
 import MapControls from "./MapControls";
 import RainfallLegend from "./RainfallLegend";
 import FloodLegend from "./FloodLegend";
@@ -43,7 +44,7 @@ const MapViewRefactored = ({ places, apiKey, floodZones = [] }) => {
   const floodOverlayGroup = useRef(null);
   const routeGroup = useRef(null);
 
-  const [routingMode, setRoutingMode] = useState(false);
+  const [routingMode, setRoutingMode] = useState(true); // Mặc định bật search mode
   const [floodZonesVisible, setFloodZonesVisible] = useState(true);
   const [weatherOverlayVisible, setWeatherOverlayVisible] = useState(false);
 
@@ -71,6 +72,7 @@ const MapViewRefactored = ({ places, apiKey, floodZones = [] }) => {
     selectedRoute,
     routeInfo,
     routeWarning,
+    loading,
     calculateRoute,
     selectRoute,
     clearRoute,
@@ -356,6 +358,31 @@ const MapViewRefactored = ({ places, apiKey, floodZones = [] }) => {
     }
   }, [clearRoute, removeObject, userLocation, setRouteStart]);
 
+  /**
+   * Handle route calculate from search panel
+   */
+  const handleRouteCalculateFromSearch = useCallback(
+    (startPoint, endPoint, transportMode) => {
+      console.log("🔍 Calculating route from search:", {
+        startPoint,
+        endPoint,
+        transportMode,
+      });
+
+      setRouteStart(startPoint);
+      setRouteEnd(endPoint);
+
+      // Focus map to route area
+      const midLat = (startPoint.lat + endPoint.lat) / 2;
+      const midLng = (startPoint.lng + endPoint.lng) / 2;
+      setCenterAndZoom(midLat, midLng, 13);
+
+      // Calculate route
+      calculateRoute(startPoint, endPoint);
+    },
+    [setRouteStart, setRouteEnd, setCenterAndZoom, calculateRoute]
+  );
+
   // ========== MAP CLICK HANDLER ==========
 
   useEffect(() => {
@@ -449,16 +476,22 @@ const MapViewRefactored = ({ places, apiKey, floodZones = [] }) => {
       {/* Flood Legend - Only show when flood zones are visible */}
       {floodZonesVisible && <FloodLegend isVisible={floodZonesVisible} />}
 
-      {/* Routing Controls */}
+      {/* Route Search Panel - Giống Google Maps */}
       {routingMode && (
+        <RouteSearchPanel
+          apiKey={apiKey}
+          onRouteCalculate={handleRouteCalculateFromSearch}
+          userLocation={userLocation}
+          routeStart={routeStart}
+          routeEnd={routeEnd}
+          loading={loading}
+        />
+      )}
+
+      {/* Routing Controls */}
+      {routingMode && allRoutes.length > 0 && (
         <div className="routing-controls">
           <div className="routing-instructions">
-            <RouteHint
-              userLocation={userLocation}
-              routeStart={routeStart}
-              routeEnd={routeEnd}
-              locationPermission={locationPermission}
-            />
             <FloodWarning warning={routeWarning} />
             <RouteAlternatives
               routes={allRoutes}

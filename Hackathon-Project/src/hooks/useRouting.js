@@ -4,12 +4,12 @@
  */
 
 import { useState, useCallback, useMemo } from "react";
-import { ROUTING_CONFIG } from "../utils/routeConstants";
+import { ROUTING_CONFIG, TRANSPORT_MODES } from "../utils/routeConstants";
 import {
   analyzeRoutesFlood,
   selectBestRoute,
   convertFloodZonesToAvoidAreas,
-  filterFloodZonesByRisk,
+  selectFloodZonesToAvoid,
 } from "../utils/floodCalculations";
 
 export const useRouting = (getRoutingService, floodZones) => {
@@ -61,9 +61,12 @@ export const useRouting = (getRoutingService, floodZones) => {
 
   /**
    * Calculate route
+   * @param {Object} start - Điểm xuất phát {lat, lng}
+   * @param {Object} end - Điểm đích {lat, lng}
+   * @param {string} transportMode - Phương tiện: 'car', 'pedestrian', 'bicycle', 'publicTransport'
    */
   const calculateRoute = useCallback(
-    async (start, end, avoidFloods = true) => {
+    async (start, end, transportMode = "car") => {
       if (!start || !end) {
         console.error("Missing start or end point");
         return;
@@ -78,19 +81,41 @@ export const useRouting = (getRoutingService, floodZones) => {
       setLoading(true);
       setError(null);
 
-      console.log(`🚗 Calculating route from`, start, "to", end);
-      console.log(
-        "🌊 NEW Strategy: Chủ động TRÁNH vùng ngập bằng avoid[areas]"
-      );
+      // Lấy config của transport mode
+      const modeConfig = TRANSPORT_MODES[transportMode] || TRANSPORT_MODES.car;
+      const avoidFloods = modeConfig.avoidFloods !== false;
 
-      // Lọc flood zones theo mức độ nguy hiểm
+      const modeIcon =
+        {
+          car: "🚗",
+          pedestrian: "🚶",
+          bicycle: "🚴",
+          scooter: "🛵",
+        }[transportMode] || "🚗";
+
+      console.log(
+        `${modeIcon} Calculating route from`,
+        start,
+        "to",
+        end,
+        `(${transportMode})`
+      );
+      console.log("🌊 SMART Strategy: Lọc thông minh + Tránh vùng ngập");
+
+      // Lọc thông minh: ưu tiên vùng ngập gần route + risk level cao
       const zonesToAvoid = avoidFloods
-        ? filterFloodZonesByRisk(floodZones, ROUTING_CONFIG.avoidRiskLevels)
+        ? selectFloodZonesToAvoid(
+            floodZones,
+            start,
+            end,
+            ROUTING_CONFIG.avoidRiskLevels,
+            ROUTING_CONFIG.maxAvoidAreas
+          )
         : [];
 
       const routingParameters = {
-        routingMode: ROUTING_CONFIG.routingMode,
-        transportMode: ROUTING_CONFIG.transportMode,
+        routingMode: modeConfig.routingMode || ROUTING_CONFIG.routingMode,
+        transportMode: modeConfig.apiValue || transportMode,
         origin: `${start.lat},${start.lng}`,
         destination: `${end.lat},${end.lng}`,
         return: ROUTING_CONFIG.returnValues,
