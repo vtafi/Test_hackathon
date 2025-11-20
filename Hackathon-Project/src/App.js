@@ -15,6 +15,7 @@ import WeatherDropdown from "./components/WeatherDropdown";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Profile from "./pages/Profile";
+import AdminPage from "./pages/AdminPage";
 import APIDemo from "./pages/APIDemo";
 import authService from "./services/authService";
 import floodData from "./data/floodProneAreas.json";
@@ -84,6 +85,23 @@ const ProtectedRoute = ({ children, user }) => {
   }
 
   console.log("✅ User authenticated - Rendering protected content");
+  return children;
+};
+
+// 🛡️ Admin Route Component - Chỉ cho phép trantafi204@gmail.com
+const AdminRoute = ({ children, user }) => {
+  const ADMIN_EMAIL = "trantafi204@gmail.com";
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (user.email !== ADMIN_EMAIL) {
+    console.warn(`⛔ Access Denied: ${user.email} is not an admin.`);
+    alert("⛔ Bạn không có quyền truy cập trang Admin!");
+    return <Navigate to="/" replace />;
+  }
+
   return children;
 };
 
@@ -349,6 +367,16 @@ function App() {
             <ProtectedRoute user={user}>
               <Profile />
             </ProtectedRoute>
+          }
+        />
+
+        {/* Admin Page - PROTECTED (Only for trantafi204@gmail.com) */}
+        <Route
+          path="/admin"
+          element={
+            <AdminRoute user={user}>
+              <AdminPage />
+            </AdminRoute>
           }
         />
 
