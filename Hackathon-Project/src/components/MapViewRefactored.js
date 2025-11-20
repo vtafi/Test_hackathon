@@ -43,6 +43,7 @@ const MapViewRefactored = ({ places, apiKey, floodZones = [] }) => {
   const markersGroup = useRef(null);
   const floodOverlayGroup = useRef(null);
   const routeGroup = useRef(null);
+  const userMarkerRef = useRef(null);
 
   const [routingMode, setRoutingMode] = useState(true); // Mặc định bật search mode
   const [floodZonesVisible, setFloodZonesVisible] = useState(true);
@@ -184,6 +185,91 @@ const MapViewRefactored = ({ places, apiKey, floodZones = [] }) => {
 
     addObject(markersGroup.current);
   }, [mapReady, map, places, addObject, removeObject]);
+
+  // ========== USER LOCATION MARKER & AUTO ZOOM ==========
+
+  useEffect(() => {
+    if (!mapReady || !map || !window.H || !userLocation) {
+      console.log("⏳ Waiting for:", {
+        mapReady,
+        hasMap: !!map,
+        hasH: !!window.H,
+        userLocation,
+      });
+      return;
+    }
+
+    // Xóa marker cũ nếu có
+    if (userMarkerRef.current) {
+      removeObject(userMarkerRef.current);
+      userMarkerRef.current = null;
+    }
+
+    // Chỉ skip nếu đang có ROUTE (cả start và end) và start trùng với userLocation
+    // (vì route visualization sẽ vẽ marker)
+    if (
+      allRoutes &&
+      allRoutes.length > 0 &&
+      routeStart &&
+      Math.abs(routeStart.lat - userLocation.lat) < 0.0001 &&
+      Math.abs(routeStart.lng - userLocation.lng) < 0.0001
+    ) {
+      console.log("⏭️ Skip user marker - route is active with same position");
+      return;
+    }
+
+    // Tạo marker vị trí người dùng
+    const userMarker = createUserLocationMarker(
+      userLocation.lat,
+      userLocation.lng
+    );
+
+    if (userMarker) {
+      addObject(userMarker);
+      userMarkerRef.current = userMarker;
+      console.log("📍 User location marker displayed at:", userLocation);
+
+      // Tự động zoom đến vị trí người dùng (chỉ khi chưa có route)
+      if (!allRoutes || allRoutes.length === 0) {
+        console.log("🎯 Zooming to:", {
+          lat: userLocation.lat,
+          lng: userLocation.lng,
+          zoom: MAP_CONFIG.userLocationZoom,
+        });
+
+        // Sử dụng setTimeout để đảm bảo marker đã được thêm vào map
+        setTimeout(() => {
+          console.log("⏰ Timeout executing, map:", map);
+          if (map && typeof map.setCenter === "function") {
+            console.log(
+              "🔄 Setting center to:",
+              userLocation.lat,
+              userLocation.lng
+            );
+            map.setCenter(
+              { lat: userLocation.lat, lng: userLocation.lng },
+              true // animate
+            );
+            map.setZoom(MAP_CONFIG.userLocationZoom, true);
+            console.log("✅ Map centered successfully");
+          } else {
+            console.error("❌ Map object invalid:", map);
+          }
+        }, 100);
+      } else {
+        console.log("⏭️ Skip zoom - route exists");
+      }
+    }
+  }, [
+    mapReady,
+    map,
+    userLocation,
+    routeStart,
+    allRoutes,
+    addObject,
+    removeObject,
+    setCenterAndZoom,
+  ]);
 
   // ========== ROUTE VISUALIZATION ==========
 

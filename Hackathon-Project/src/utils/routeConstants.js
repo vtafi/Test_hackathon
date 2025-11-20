@@ -43,7 +43,7 @@ export const RISK_COLORS = {
 export const MAP_CONFIG = {
   defaultCenter: { lat: 16.0544, lng: 108.2022 }, // Đà Nẵng
   defaultZoom: 12,
-  userLocationZoom: 14,
+  userLocationZoom: 16, // Zoom gần hơn để thấy rõ vị trí
   routeLineWidth: {
     selected: 8,
     unselected: 5,

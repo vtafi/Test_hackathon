@@ -221,6 +221,15 @@ const RouteSearchPanel = ({
             onChange={(e) => handleInputChange("start", e.target.value)}
             onFocus={() => setActiveInput("start")}
           />
+          {!startQuery && userLocation && (
+            <button
+              className="location-btn"
+              onClick={handleUseCurrentLocation}
+              title="Dùng vị trí hiện tại"
+            >
+              📍
+            </button>
+          )}
           {startQuery && (
             <button
               className="clear-btn"
