@@ -1,12 +1,21 @@
 {
   "name": "backend",
   "version": "1.0.0",
-  "description": "",
+  "description": "Backend server for Flood Alert System with Telegram Bot integration",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "setup": "node checkSetup.js",
+    "bot:listener": "node telegramBotListener.js",
+    "bot:alert": "node telegramAlertTrigger.js",
+    "bot:test": "node testAlert.js",
+    "bot:mock": "node mockFloodAlert.js",
+    "bot:simple": "node telegramBotListenerSimple.js",
+    "bot:alert:simple": "node telegramAlertTriggerSimple.js",
+    "bot:dev:listener": "nodemon telegramBotListener.js",
+    "bot:dev:alert": "nodemon telegramAlertTrigger.js"
   },
   "keywords": [],
   "author": "",
