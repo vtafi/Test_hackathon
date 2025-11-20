@@ -15,6 +15,7 @@ import WeatherDropdown from "./components/WeatherDropdown";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Profile from "./pages/Profile";
+import APIDemo from "./pages/APIDemo";
 import authService from "./services/authService";
 import floodData from "./data/floodProneAreas.json";
 import GradientTabs from "./components/GradientTabs";
@@ -473,6 +474,9 @@ function App() {
             </ProtectedRoute>
           }
         />
+
+        {/* API Demo Page - PUBLIC (for testing) */}
+        <Route path="/api-demo" element={<APIDemo />} />
       </Routes>
     </Router>
   );

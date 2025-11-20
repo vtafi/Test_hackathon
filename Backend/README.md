@@ -2,6 +2,12 @@
 
 Backend API cho hệ thống cảnh báo thời tiết và ngập lụt, tích hợp **Gemini AI** để tạo email cảnh báo thông minh và **Firebase** để lắng nghe dữ liệu IoT realtime.
 
+> **⚠️ IMPORTANT UPDATE (v2.0.0 - Nov 20, 2025)**  
+> Backend đã được refactor theo kiến trúc MVC. Entry point mới: `src/index.js`  
+> Xem chi tiết trong `REFACTOR_SUMMARY.md`
+>
+> **Quick Start:** `npm start` (đã update trong package.json)
+
 ---
 
 ## ✨ Tính Năng

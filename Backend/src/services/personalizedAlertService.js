@@ -4,25 +4,30 @@ const floodPredictionService = require("./floodPredictionService");
 
 class PersonalizedAlertService {
   /**
-   * Lấy danh sách địa điểm của user từ Firestore
+   * Lấy danh sách địa điểm của user từ Realtime Database
    */
   async getUserLocations(userId) {
     try {
-      const db = admin.firestore();
-      const locationsRef = db.collection(`users/${userId}/locations`);
-      const snapshot = await locationsRef.where("status", "!=", "deleted").get();
+      const db = admin.database();
+      const locationsRef = db.ref(`userProfiles/${userId}/locations`);
+      const snapshot = await locationsRef.once("value");
 
-      if (snapshot.empty) {
+      if (!snapshot.exists()) {
         return [];
       }
 
+      const locationsData = snapshot.val();
       const locations = [];
-      snapshot.forEach((doc) => {
-        locations.push({
-          id: doc.id,
-          ...doc.data(),
-        });
-      });
+
+      // Convert object to array
+      for (const [id, data] of Object.entries(locationsData)) {
+        if (data.status !== "deleted") {
+          locations.push({
+            id: id,
+            ...data,
+          });
+        }
+      }
 
       // Sắp xếp theo priority: high > medium > low
       const priorityOrder = { high: 1, medium: 2, low: 3 };
@@ -37,20 +42,24 @@ class PersonalizedAlertService {
   }
 
   /**
-   * Lấy thông tin user
+   * Lấy thông tin user từ Realtime Database
    */
   async getUser(userId) {
     try {
-      const db = admin.firestore();
-      const userDoc = await db.collection("users").doc(userId).get();
+      const db = admin.database();
+      const userRef = db.ref(`userProfiles/${userId}`);
+      const snapshot = await userRef.once("value");
 
-      if (!userDoc.exists) {
+      if (!snapshot.exists()) {
         return null;
       }
 
+      const userData = snapshot.val();
       return {
         userId: userId,
-        ...userDoc.data(),
+        name: userData.name || userData.displayName || "Người dùng",
+        email: userData.email || process.env.ALERT_EMAIL_RECIPIENTS?.split(",")[0] || "user@example.com",
+        ...userData,
       };
     } catch (error) {
       console.error("Lỗi lấy thông tin user:", error);
@@ -280,15 +289,14 @@ FORMAT BẮT BUỘC: Trả về JSON thuần với 2 trường:
   }
 
   /**
-   * Lưu log cảnh báo vào Firestore
+   * Lưu log cảnh báo vào Realtime Database
    */
   async saveAlertLog(userId, alert, emailResult) {
     try {
-      const db = admin.firestore();
-      const alertRef = db
-        .collection(`users/${userId}/personalizedAlerts`)
-        .doc();
-
+      const db = admin.database();
+      
+      // Lưu alert log
+      const alertRef = db.ref(`userProfiles/${userId}/personalizedAlerts`).push();
       await alertRef.set({
         locationId: alert.location.id,
         locationName: alert.location.name,
@@ -302,28 +310,18 @@ FORMAT BẮT BUỘC: Trả về JSON thuần với 2 trường:
         predictedDepth: alert.prediction.details.predictedDepth,
         emailSent: emailResult.success,
         emailSubject: emailResult.subject || null,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        createdAt: Date.now(),
         isRead: false,
       });
 
       // Cập nhật stats
-      await db
-        .collection("users")
-        .doc(userId)
-        .set(
-          {
-            stats: {
-              alertsReceived: admin.firestore.FieldValue.increment(1),
-            },
-            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-          },
-          { merge: true }
-        );
+      const statsRef = db.ref(`userProfiles/${userId}/stats/alertsReceived`);
+      const currentStats = await statsRef.once("value");
+      const currentCount = currentStats.val() || 0;
+      await statsRef.set(currentCount + 1);
 
       // Thêm activity
-      const activityRef = db
-        .collection(`users/${userId}/activities`)
-        .doc();
+      const activityRef = db.ref(`userProfiles/${userId}/activities`).push();
       await activityRef.set({
         type: "alert_received",
         title: `Cảnh báo ngập tại ${alert.floodArea.name}`,
@@ -336,7 +334,7 @@ FORMAT BẮT BUỘC: Trả về JSON thuần với 2 trường:
         },
       });
 
-      return { success: true, alertId: alertRef.id };
+      return { success: true, alertId: alertRef.key };
     } catch (error) {
       console.error("Lỗi lưu alert log:", error);
       return { success: false, error: error.message };
@@ -344,19 +342,18 @@ FORMAT BẮT BUỘC: Trả về JSON thuần với 2 trường:
   }
 
   /**
-   * Cập nhật status của location
+   * Cập nhật status của location trong Realtime Database
    */
   async updateLocationStatus(userId, locationId, status, lastAlertTime) {
     try {
-      const db = admin.firestore();
-      await db
-        .collection(`users/${userId}/locations`)
-        .doc(locationId)
-        .update({
-          status: status, // "safe", "warning", "danger", "critical"
-          lastAlertTime: lastAlertTime || admin.firestore.FieldValue.serverTimestamp(),
-          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-        });
+      const db = admin.database();
+      const locationRef = db.ref(`userProfiles/${userId}/locations/${locationId}`);
+      
+      await locationRef.update({
+        status: status, // "safe", "warning", "danger", "critical"
+        lastAlertTime: lastAlertTime || Date.now(),
+        updatedAt: Date.now(),
+      });
 
       return { success: true };
     } catch (error) {
