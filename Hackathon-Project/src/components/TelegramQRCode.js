@@ -16,18 +16,28 @@ const TelegramQRCode = ({ showModal = false, onClose }) => {
   const [showDetail, setShowDetail] = useState(false);
 
   useEffect(() => {
-    loadBotInfo();
-  }, []);
+    if (showModal) {
+      loadBotInfo();
+    }
+  }, [showModal]);
 
   const loadBotInfo = async () => {
     try {
       setLoading(true);
       setError(null);
       
-      // Lấy thông tin QR
-      const qrResponse = await getTelegramQRInfo();
+      // Lấy userId từ Firebase Auth (imported from configs)
+      const { auth } = await import('../configs/firebase');
+      const currentUser = auth.currentUser;
+      const userId = currentUser?.uid;
+      
+      console.log('🔐 Current user ID for QR:', userId);
+      
+      // Lấy thông tin QR với userId để auto-link
+      const qrResponse = await getTelegramQRInfo(userId);
       if (qrResponse.success) {
         setQrData(qrResponse.data.qrData);
+        console.log('✅ QR data loaded:', qrResponse.data.qrData);
       }
       
       // Lấy thông tin chi tiết bot

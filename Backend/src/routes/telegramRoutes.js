@@ -6,6 +6,7 @@
 const express = require('express');
 const router = express.Router();
 const { getTelegramQRInfo, getBotInfo } = require('../controllers/telegramQRController');
+const { checkTelegramStatus, unlinkTelegram } = require('../controllers/telegramStatusController');
 
 /**
  * @route GET /api/telegram/qr-info
@@ -20,5 +21,19 @@ router.get('/qr-info', getTelegramQRInfo);
  * @access Public
  */
 router.get('/info', getBotInfo);
+
+/**
+ * @route GET /api/telegram/status
+ * @desc Kiểm tra trạng thái liên kết Telegram của user
+ * @access Public
+ */
+router.get('/status', checkTelegramStatus);
+
+/**
+ * @route DELETE /api/telegram/unlink
+ * @desc Hủy liên kết Telegram
+ * @access Public
+ */
+router.delete('/unlink', unlinkTelegram);
 
 module.exports = router;

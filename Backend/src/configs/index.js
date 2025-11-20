@@ -18,6 +18,7 @@ function validateEnv() {
     "OPENWEATHER_API_KEY",
     "FIREBASE_SERVICE_ACCOUNT_KEY",
     "FIREBASE_DATABASE_URL",
+    "TELEGRAM_BOT_TOKEN",
   ];
 
   const missingOptional = optional.filter((key) => !process.env[key]);
@@ -43,5 +44,6 @@ module.exports = {
   alertEmailRecipients: process.env.ALERT_EMAIL_RECIPIENTS
     ? process.env.ALERT_EMAIL_RECIPIENTS.split(",").map((e) => e.trim())
     : [],
+  telegramBotToken: process.env.TELEGRAM_BOT_TOKEN,
   validateEnv,
 };

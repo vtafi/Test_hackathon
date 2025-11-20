@@ -9,6 +9,7 @@ const {
 const firebaseClient = require("./integrations/firebaseClient");
 const iotListener = require("./iot/iotListener");
 const schedulerService = require("./services/schedulerService");
+const telegramBot = require("./integrations/telegramBotListener");
 
 // Validate environment variables
 config.validateEnv();
@@ -76,6 +77,19 @@ if (config.firebaseServiceAccountKey && config.firebaseDatabaseURL) {
     schedulerService.start().catch((error) => {
       console.error("❌ Lỗi khởi động Scheduler Service:", error);
     });
+
+    // ==========================================
+    // 📱 TELEGRAM BOT LISTENER
+    // ==========================================
+    // Khởi động Telegram bot để lắng nghe người dùng đăng ký
+    if (config.telegramBotToken) {
+      console.log("📱 Đang khởi động Telegram Bot Listener...");
+      telegramBot.start(config.telegramBotToken).catch((error) => {
+        console.error("❌ Lỗi khởi động Telegram Bot:", error.message);
+      });
+    } else {
+      console.log("⚠️ Telegram Bot chưa cấu hình (thiếu TELEGRAM_BOT_TOKEN)");
+    }
     
   } catch (error) {
     console.error("❌ Firebase initialization failed:", error.message);
@@ -93,12 +107,14 @@ if (config.firebaseServiceAccountKey && config.firebaseDatabaseURL) {
 process.on("SIGTERM", () => {
   console.log("\n👋 SIGTERM received. Shutting down gracefully...");
   schedulerService.stop();
+  telegramBot.stop();
   process.exit(0);
 });
 
 process.on("SIGINT", () => {
   console.log("\n👋 SIGINT received. Shutting down gracefully...");
   schedulerService.stop();
+  telegramBot.stop();
   process.exit(0);
 });
 

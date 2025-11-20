@@ -10,20 +10,23 @@ const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 
 /**
  * Lấy thông tin QR code cho Telegram Bot
- * @route GET /api/telegram/qr-info
+ * @route GET /api/telegram/qr-info?userId=xxx
  */
 async function getTelegramQRInfo(req, res) {
   try {
-    // Tạo deep link để mở trực tiếp bot trong Telegram
+    // Lấy userId từ query params (từ frontend)
+    const userId = req.query.userId || 'guest';
+    
+    // Tạo deep link với userId để auto-link khi user START bot
     const deepLink = `https://t.me/${BOT_USERNAME}`;
-    const startLink = `https://t.me/${BOT_USERNAME}?start=qr_scan`;
+    const startLink = `https://t.me/${BOT_USERNAME}?start=${userId}`;
     
     // Thông tin bot
     const botInfo = {
       username: BOT_USERNAME,
       deepLink: deepLink,
       startLink: startLink,
-      qrData: deepLink, // Data để tạo QR code
+      qrData: startLink, // QR code chứa startLink với userId
       instructions: {
         vi: 'Quét mã QR để chat với bot ngay lập tức',
         en: 'Scan QR code to chat with bot instantly'

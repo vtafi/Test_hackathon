@@ -229,6 +229,60 @@
   margin: 0.25rem 0.5rem;
 }
 
+/* Telegram Linked Status */
+.user-menu-item.telegram-linked {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  cursor: default;
+  background: linear-gradient(135deg, rgba(34, 193, 195, 0.1) 0%, rgba(45, 253, 203, 0.1) 100%);
+  border-left: 3px solid #22c1c3;
+}
+
+.telegram-status {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  flex: 1;
+  margin-left: 0.5rem;
+}
+
+.telegram-linked-text {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #0f766e;
+}
+
+.telegram-username {
+  font-size: 0.75rem;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.unlink-button {
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  border: none;
+  background: rgba(239, 68, 68, 0.1);
+  color: #dc2626;
+  font-size: 1.25rem;
+  font-weight: bold;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  line-height: 1;
+  padding: 0;
+}
+
+.unlink-button:hover {
+  background: rgba(239, 68, 68, 0.2);
+  transform: scale(1.1);
+}
+
 /* Login Button */
 .login-button {
   padding: 0.5rem 1.5rem;

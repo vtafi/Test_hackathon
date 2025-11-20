@@ -50,6 +50,9 @@ const sendEmail = async (to, subject, html, text) => {
 
 // Hàm gửi email cảnh báo lũ lụt
 const sendFloodAlert = async (to, alertData) => {
+  const emailStartTime = Date.now();
+  console.log(`📧 [${new Date().toLocaleTimeString()}] Bắt đầu gửi Email...`);
+  
   const subject = `🚨 Cảnh báo lũ lụt: ${
     alertData.district || "Khu vực của bạn"
   }`;
@@ -102,7 +105,14 @@ const sendFloodAlert = async (to, alertData) => {
     Vui lòng theo dõi thông tin cập nhật và tuân thủ hướng dẫn của chính quyền địa phương.
   `;
 
-  return await sendEmail(to, subject, html, text);
+  const result = await sendEmail(to, subject, html, text);
+  const emailEndTime = Date.now();
+  const emailSendTime = emailEndTime - emailStartTime;
+  console.log(`📧 [${new Date().toLocaleTimeString()}] Email hoàn thành trong ${emailSendTime}ms`);
+  
+  // Thêm thời gian vào kết quả
+  result.sendTime = emailSendTime;
+  return result;
 };
 
 // Hàm gửi email thông tin thời tiết

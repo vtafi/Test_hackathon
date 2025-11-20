@@ -2,6 +2,7 @@ const personalizedAlertService = require("../services/personalizedAlertService")
 const sensorBasedAlertService = require("../services/sensorBasedAlertService");
 const geminiClient = require("../integrations/geminiClient");
 const emailService = require("../email/emailService");
+const telegramAlertService = require("../services/telegramAlertService");
 
 class PersonalizedAlertController {
   /**
@@ -482,21 +483,34 @@ TRẢ VỀ JSON THUẦN: {"subject": "...", "htmlBody": "..."}
             `✅ AI tạo cảnh báo: ${generatedAlert.subject}`
           );
 
-          // Gửi email nếu được yêu cầu (CHỈ 1 LẦN cho location này)
+          // Gửi email + Telegram SONG SONG (parallel)
           let emailResult = { success: false };
+          let telegramResult = { success: false, skipped: true };
+          
           if (shouldSendEmail && analysis.user.email) {
-            console.log(`📧 Đang gửi email tới ${analysis.user.email}...`);
+            console.log(`📤 Đang gửi cảnh báo song song: Email + Telegram...`);
             
-            emailResult = await emailService.sendAIFloodAlert(
-              analysis.user.email,
-              generatedAlert
+            // Gửi song song với Promise.allSettled
+            const alertResult = await telegramAlertService.sendAlertWithEmail(
+              userId,
+              { sensors: sensors }, // Alert data
+              location,
+              analysis.user,
+              async () => {
+                // Email send function
+                return await emailService.sendAIFloodAlert(
+                  analysis.user.email,
+                  generatedAlert
+                );
+              }
             );
 
-            if (emailResult.success) {
-              console.log(`✅ Email đã gửi thành công!`);
-            } else {
-              console.error(`❌ Lỗi gửi email:`, emailResult.error);
-            }
+            emailResult = alertResult.email.result;
+            telegramResult = alertResult.telegram.result;
+
+            console.log(`⏱️ Hoàn thành trong ${alertResult.totalTime}ms`);
+            console.log(`📧 Email: ${emailResult.success ? '✅ Thành công' : '❌ Thất bại'}`);
+            console.log(`📱 Telegram: ${telegramResult.success ? '✅ Thành công' : telegramResult.skipped ? '⏭️ Bỏ qua' : '❌ Thất bại'}`);
           }
 
           // Lưu log vào Firebase (1 record cho location, list tất cả sensors)
@@ -517,6 +531,10 @@ TRẢ VỀ JSON THUẦN: {"subject": "...", "htmlBody": "..."}
             })),
             emailSent: emailResult.success,
             emailSubject: generatedAlert.subject || null,
+            telegramSent: telegramResult.success || false,
+            telegramSkipped: telegramResult.skipped || false,
+            telegramChatId: telegramResult.chatId || null,
+            telegramMessageId: telegramResult.messageId || null,
             createdAt: Date.now(),
             isRead: false,
           });
@@ -527,6 +545,8 @@ TRẢ VỀ JSON THUẦN: {"subject": "...", "htmlBody": "..."}
             sensors: sensors,
             alert: generatedAlert,
             emailSent: emailResult.success,
+            telegramSent: telegramResult.success || false,
+            telegramSkipped: telegramResult.skipped || false,
           });
         } catch (error) {
           console.error(
