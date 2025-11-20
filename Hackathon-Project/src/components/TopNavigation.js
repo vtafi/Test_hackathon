@@ -1,0 +1,161 @@
+/**
+ * TopNavigation Component - MODERN UI
+ * Top-right navigation với tabs (Bản đồ/Thời tiết) và avatar dropdown
+ * Giống code MapApp bạn gửi
+ */
+
+import React, { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
+import { 
+  Map as MapIcon, 
+  Cloud, 
+  User, 
+  Settings, 
+  LogOut 
+} from 'lucide-react';
+import "./TopNavigation.css";
+
+const TopNavigation = ({ user, onLogout }) => {
+  const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState('map');
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  const userMenuRef = useRef(null);
+
+  // Close menu khi click outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
+        setShowUserMenu(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const handleTabClick = (tab) => {
+    setActiveTab(tab);
+    if (tab === 'map') {
+      navigate('/');
+    } else if (tab === 'weather') {
+      navigate('/weather-detail');
+    }
+  };
+
+  const handleMenuClick = (action) => {
+    setShowUserMenu(false);
+    switch (action) {
+      case 'map':
+        navigate('/');
+        break;
+      case 'weather':
+        navigate('/weather-detail');
+        break;
+      case 'profile':
+        navigate('/profile');
+        break;
+      case 'settings':
+        navigate('/profile');
+        break;
+      case 'logout':
+        onLogout();
+        break;
+      default:
+        break;
+    }
+  };
+
+  // Avatar URL
+  const avatarUrl = user?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.email || 'User'}`;
+
+  return (
+    <div className="top-navigation-container" ref={userMenuRef}>
+      {/* Main Nav Buttons */}
+      <div className="glass-panel nav-tabs">
+        <button 
+          onClick={() => handleTabClick('map')}
+          className={`nav-tab ${activeTab === 'map' ? 'active' : ''}`}
+        >
+          <MapIcon size={16} /> Bản đồ
+        </button>
+        <button 
+          onClick={() => handleTabClick('weather')}
+          className={`nav-tab ${activeTab === 'weather' ? 'active' : ''}`}
+        >
+          <Cloud size={16} /> Thời tiết
+        </button>
+      </div>
+
+      {/* Avatar & Dropdown Container */}
+      {user && (
+        <div className="avatar-container">
+          <button 
+            onClick={() => setShowUserMenu(!showUserMenu)}
+            className={`avatar-button ${showUserMenu ? 'active' : ''}`}
+          >
+            <img src={avatarUrl} alt="User" />
+          </button>
+
+          {/* User Dropdown Menu */}
+          {showUserMenu && (
+            <div className="user-menu-dropdown">
+              {/* Header */}
+              <div className="user-menu-header">
+                <div className="user-menu-avatar">
+                  <User size={24} />
+                </div>
+                <div className="user-menu-info">
+                  <h4 className="user-menu-name">{user.displayName || 'User'}</h4>
+                  <p className="user-menu-email">{user.email}</p>
+                </div>
+              </div>
+
+              {/* Menu Items */}
+              <div className="user-menu-items">
+                <button onClick={() => handleMenuClick('map')} className="user-menu-item">
+                  <MapIcon size={18} className="menu-icon indigo" />
+                  <span>Bản đồ</span>
+                </button>
+                <button onClick={() => handleMenuClick('weather')} className="user-menu-item">
+                  <Cloud size={18} className="menu-icon sky" />
+                  <span>Thời tiết chi tiết</span>
+                </button>
+                
+                <div className="menu-separator"></div>
+                
+                <button onClick={() => handleMenuClick('profile')} className="user-menu-item">
+                  <User size={18} className="menu-icon slate" />
+                  <span>Trang cá nhân</span>
+                </button>
+                <button onClick={() => handleMenuClick('settings')} className="user-menu-item">
+                  <Settings size={18} className="menu-icon slate" />
+                  <span>Cài đặt</span>
+                </button>
+
+                <div className="menu-separator"></div>
+
+                <button onClick={() => handleMenuClick('logout')} className="user-menu-item logout">
+                  <LogOut size={18} className="menu-icon" />
+                  <span>Đăng xuất</span>
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Login button nếu chưa đăng nhập */}
+      {!user && (
+        <button 
+          onClick={() => navigate('/login')}
+          className="glass-panel login-button"
+        >
+          Đăng nhập
+        </button>
+      )}
+    </div>
+  );
+};
+
+export default TopNavigation;
+
+

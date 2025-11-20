@@ -1,11 +1,18 @@
 /**
- * MapControls Component
- * Control panel for map layers (flood zones, weather, etc.)
+ * MapControls Component - MODERN UI
+ * Control panel for map layers (flood zones, weather, routing)
+ * Giữ nguyên chức năng, chỉ thay đổi giao diện
  */
 
 import React, { useState } from "react";
-import { Switch } from "./ui/switch";
-import { Label } from "./ui/label";
+import { 
+  Layers, 
+  AlertTriangle, 
+  CloudRain, 
+  Shield,
+  ChevronUp,
+  ChevronDown
+} from 'lucide-react';
 import "./MapControls.css";
 
 const MapControls = ({
@@ -16,94 +23,106 @@ const MapControls = ({
   weatherOverlayVisible = false,
   onToggleRouting,
   routingMode = false,
+  isCollapsed = false,
+  onToggleCollapse,
 }) => {
-  const [isExpanded, setIsExpanded] = useState(true);
+  const [isExpanded, setIsExpanded] = useState(!isCollapsed);
+
+  // Sync với prop isCollapsed từ parent
+  React.useEffect(() => {
+    setIsExpanded(!isCollapsed);
+  }, [isCollapsed]);
 
   return (
-    <div className="map-controls-container">
-      <div
-        className="map-controls-header"
-        onClick={() => setIsExpanded(!isExpanded)}
-      >
-        <div className="controls-header-content">
-          <span className="controls-icon">🗂️</span>
-          <h3 className="controls-title">Chức năng</h3>
+    <div className="modern-map-controls">
+      <div className="glass-panel layers-card">
+        <div 
+          className="layers-header"
+          onClick={() => {
+            const newExpanded = !isExpanded;
+            setIsExpanded(newExpanded);
+            if (onToggleCollapse) {
+              onToggleCollapse(!newExpanded);
+            }
+          }}
+        >
+          <h3 className="layers-title">
+            <Layers size={16} className="text-indigo-600" /> Lớp phủ & Tiện ích
+          </h3>
+          {isExpanded ? <ChevronUp size={16} className="chevron" /> : <ChevronDown size={16} className="chevron" />}
         </div>
-        <button className="controls-toggle-btn">
-          <span className={`toggle-arrow ${isExpanded ? "expanded" : ""}`}>
-            ▼
-          </span>
-        </button>
+        
+        <div className={`layers-list-container ${isExpanded ? 'expanded' : 'collapsed'}`}>
+          <div className="layers-list">
+            {/* Flood Markers Toggle */}
+            <div className="layer-item" onClick={() => onToggleFloodZones(!floodZonesVisible)}>
+              <div className="layer-info">
+                <div className="layer-icon blue">
+                  <AlertTriangle size={18} />
+                </div>
+                <div>
+                  <p className="layer-name">Các điểm ngập</p>
+                  <p className="layer-desc">{floodZonesCount} điểm phát hiện</p>
+                </div>
+              </div>
+              <Switch 
+                checked={floodZonesVisible} 
+                onChange={() => onToggleFloodZones(!floodZonesVisible)} 
+              />
+            </div>
+
+            {/* Rain Overlay Toggle */}
+            <div className="layer-item" onClick={() => onToggleWeatherOverlay(!weatherOverlayVisible)}>
+              <div className="layer-info">
+                <div className="layer-icon purple">
+                  <CloudRain size={18} />
+                </div>
+                <div>
+                  <p className="layer-name">Hiển thị lượng mưa</p>
+                  <p className="layer-desc">Realtime radar</p>
+                </div>
+              </div>
+              <Switch 
+                checked={weatherOverlayVisible} 
+                onChange={() => onToggleWeatherOverlay(!weatherOverlayVisible)} 
+              />
+            </div>
+
+            {/* Routing Feature Toggle */}
+            <div 
+              className={`layer-item feature ${routingMode ? 'active' : ''}`}
+              onClick={() => onToggleRouting(!routingMode)}
+            >
+              <div className="layer-info">
+                <div className="layer-icon-feature">
+                  <Shield size={14} />
+                </div>
+                <span className="feature-name">Dẫn đường tránh ngập</span>
+              </div>
+              <Switch 
+                checked={routingMode} 
+                onChange={() => onToggleRouting(!routingMode)} 
+                activeColor="indigo"
+              />
+            </div>
+          </div>
+        </div>
       </div>
+    </div>
+  );
+};
 
-      {isExpanded && (
-        <div className="map-controls-content">
-          {/* Các điểm ngập - Active */}
-          <div className="control-item">
-            <div className="control-item-info">
-              <span className="control-icon flood-icon">🌊</span>
-              <div className="control-label-group">
-                <Label htmlFor="flood-zones-toggle" className="control-label">
-                  Các điểm đen dễ ngập
-                </Label>
-                <span className="control-count">({floodZonesCount})</span>
-              </div>
-            </div>
-            <Switch
-              id="flood-zones-toggle"
-              checked={floodZonesVisible}
-              onCheckedChange={onToggleFloodZones}
-            />
-          </div>
-
-          {/* Hiển thị lượng mưa - Now Active */}
-          <div className="control-item">
-            <div className="control-item-info">
-              <span className="control-icon">🌧️</span>
-              <div className="control-label-group">
-                <Label htmlFor="rainfall-toggle" className="control-label">
-                  Hiển thị lượng mưa
-                </Label>
-              </div>
-            </div>
-            <Switch
-              id="rainfall-toggle"
-              checked={weatherOverlayVisible}
-              onCheckedChange={onToggleWeatherOverlay}
-            />
-          </div>
-
-          {/* Thông báo điểm ngập gần */}
-          <div className="control-item disabled">
-            <div className="control-item-info">
-              <span className="control-icon">🔔</span>
-              <div className="control-label-group">
-                <Label htmlFor="notification-toggle" className="control-label">
-                  Thông báo điểm ngập gần bạn
-                </Label>
-              </div>
-            </div>
-            <Switch id="notification-toggle" checked={false} disabled={true} />
-          </div>
-
-          {/* Dẫn đường tránh ngập */}
-          <div className="control-item">
-            <div className="control-item-info">
-              <span className="control-icon">🗺️</span>
-              <div className="control-label-group">
-                <Label htmlFor="routing-toggle" className="control-label">
-                  Dẫn đường tránh ngập
-                </Label>
-              </div>
-            </div>
-            <Switch
-              id="routing-toggle"
-              checked={routingMode}
-              onCheckedChange={onToggleRouting}
-            />
-          </div>
-        </div>
-      )}
+// Switch Component
+const Switch = ({ checked, onChange, activeColor = "indigo" }) => {
+  return (
+    <div 
+      onClick={(e) => { 
+        e.stopPropagation(); 
+        onChange(); 
+      }}
+      className={`switch ${checked ? 'checked' : ''} ${activeColor}`}
+    >
+      <div className="switch-thumb"></div>
     </div>
   );
 };
