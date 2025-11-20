@@ -11,7 +11,8 @@ import {
   Cloud, 
   User, 
   Settings, 
-  LogOut 
+  LogOut,
+  Activity
 } from 'lucide-react';
 import "./TopNavigation.css";
 
@@ -38,6 +39,8 @@ const TopNavigation = ({ user, onLogout }) => {
       navigate('/');
     } else if (tab === 'weather') {
       navigate('/weather-detail');
+    } else if (tab === 'sensors') {
+      navigate('/sensors');
     }
   };
 
@@ -82,6 +85,12 @@ const TopNavigation = ({ user, onLogout }) => {
           className={`nav-tab ${activeTab === 'weather' ? 'active' : ''}`}
         >
           <Cloud size={16} /> Thời tiết
+        </button>
+        <button 
+          onClick={() => handleTabClick('sensors')}
+          className={`nav-tab ${activeTab === 'sensors' ? 'active' : ''}`}
+        >
+          <Activity size={16} /> Sensors
         </button>
       </div>
 

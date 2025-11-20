@@ -1,4 +1,5 @@
 const personalizedAlertService = require("../services/personalizedAlertService");
+const sensorBasedAlertService = require("../services/sensorBasedAlertService");
 const geminiClient = require("../integrations/geminiClient");
 const emailService = require("../email/emailService");
 
@@ -391,6 +392,171 @@ TRẢ VỀ JSON THUẦN: {"subject": "...", "htmlBody": "..."}
           subject: "⚠️ CẢNH BÁO NGUY CƠ NGẬP LỤT",
           htmlBody: `<p>Không thể tạo email AI. Vui lòng theo dõi sát tình hình thời tiết tại khu vực của bạn.</p>`,
         },
+      });
+    }
+  }
+
+  /**
+   * POST /api/check-sensor-based-alert
+   * Kiểm tra cảnh báo dựa trên SENSOR DATA (không dùng weather forecast)
+   */
+  async checkSensorBasedAlert(req, res) {
+    try {
+      const {
+        userId,
+        sendEmail: shouldSendEmail = true,
+      } = req.body;
+
+      if (!userId) {
+        return res.status(400).json({
+          success: false,
+          error: "Thiếu userId",
+        });
+      }
+
+      console.log(`🔍 [SENSOR-BASED] Đang phân tích cho user: ${userId}`);
+
+      // 1. Phân tích với sensor data
+      const analysis = await sensorBasedAlertService.analyzeUserLocations(userId);
+
+      console.log(`📊 Kết quả: ${analysis.affectedLocations}/${analysis.totalLocations} locations bị ảnh hưởng`);
+
+      if (analysis.affectedLocations === 0) {
+        return res.json({
+          success: true,
+          message: "Tất cả địa điểm của bạn đều an toàn",
+          ...analysis,
+        });
+      }
+
+      console.log(
+        `⚠️ Phát hiện ${analysis.affectedLocations} cảnh báo từ sensors!`
+      );
+
+      // 2. Gom alerts theo location (tránh spam nhiều emails cho cùng 1 location)
+      const locationAlertsMap = {};
+      
+      for (const alert of analysis.alerts) {
+        const locId = alert.location.id;
+        if (!locationAlertsMap[locId]) {
+          locationAlertsMap[locId] = {
+            location: alert.location,
+            sensors: []
+          };
+        }
+        locationAlertsMap[locId].sensors.push(alert.sensor);
+      }
+
+      console.log(`📧 Sẽ gửi ${Object.keys(locationAlertsMap).length} email (1 email/location)`);
+
+      // 3. Tạo cảnh báo AI cho từng location (gom tất cả sensors)
+      const emailResults = [];
+
+      for (const [locId, data] of Object.entries(locationAlertsMap)) {
+        try {
+          const { location, sensors } = data;
+          
+          // Tạo prompt với TẤT CẢ sensors của location này
+          const aiPrompt = sensorBasedAlertService.createPersonalizedPromptMultipleSensors(
+            analysis.user,
+            location,
+            sensors
+          );
+
+          console.log(`🤖 Đang tạo cảnh báo AI cho "${location.name}" (${sensors.length} sensors)...`);
+
+          // Gọi Gemini AI
+          const generatedAlert = await geminiClient.generateStructuredContent(
+            aiPrompt,
+            {
+              type: "object",
+              properties: {
+                subject: { type: "string" },
+                htmlBody: { type: "string" },
+              },
+              required: ["subject", "htmlBody"],
+            }
+          );
+
+          console.log(
+            `✅ AI tạo cảnh báo: ${generatedAlert.subject}`
+          );
+
+          // Gửi email nếu được yêu cầu (CHỈ 1 LẦN cho location này)
+          let emailResult = { success: false };
+          if (shouldSendEmail && analysis.user.email) {
+            console.log(`📧 Đang gửi email tới ${analysis.user.email}...`);
+            
+            emailResult = await emailService.sendAIFloodAlert(
+              analysis.user.email,
+              generatedAlert
+            );
+
+            if (emailResult.success) {
+              console.log(`✅ Email đã gửi thành công!`);
+            } else {
+              console.error(`❌ Lỗi gửi email:`, emailResult.error);
+            }
+          }
+
+          // Lưu log vào Firebase (1 record cho location, list tất cả sensors)
+          const db = require("firebase-admin").database();
+          const alertRef = db.ref(`userProfiles/${userId}/sensorAlerts`).push();
+          
+          await alertRef.set({
+            locationId: location.id,
+            locationName: location.name,
+            sensorsCount: sensors.length,
+            sensors: sensors.map(s => ({
+              sensorId: s.sensorId,
+              sensorName: s.sensorName,
+              distance: s.distance,
+              waterLevel: s.waterLevel,
+              waterPercent: s.waterPercent,
+              floodStatus: s.floodStatus,
+            })),
+            emailSent: emailResult.success,
+            emailSubject: generatedAlert.subject || null,
+            createdAt: Date.now(),
+            isRead: false,
+          });
+
+          emailResults.push({
+            locationName: location.name,
+            sensorsCount: sensors.length,
+            sensors: sensors,
+            alert: generatedAlert,
+            emailSent: emailResult.success,
+          });
+        } catch (error) {
+          console.error(
+            `❌ Lỗi tạo cảnh báo cho ${data.location.name}:`,
+            error.message
+          );
+          emailResults.push({
+            locationName: alert.location.name,
+            error: error.message,
+            emailSent: false,
+          });
+        }
+      }
+
+      return res.json({
+        success: true,
+        message: `Đã tạo ${emailResults.length} cảnh báo từ sensor data`,
+        analysis: {
+          userId: analysis.userId,
+          user: analysis.user,
+          totalLocations: analysis.totalLocations,
+          affectedLocations: analysis.affectedLocations,
+        },
+        alerts: emailResults,
+      });
+    } catch (error) {
+      console.error("❌ Lỗi check sensor-based alert:", error);
+      return res.status(500).json({
+        success: false,
+        error: error.message,
       });
     }
   }

@@ -157,8 +157,35 @@ export const checkSingleLocation = async (
   }
 };
 
+/**
+ * Kiểm tra cảnh báo dựa trên SENSOR DATA (không dùng weather forecast)
+ * @param {string} userId - Firebase User ID
+ * @param {boolean} sendEmail - Có gửi email không, default = true
+ * @returns {Promise<Object>} - Response với analysis và alerts từ sensors
+ */
+export const checkSensorBasedAlert = async (
+  userId,
+  sendEmail = true
+) => {
+  try {
+    console.log('🌊 API: Kiểm tra cảnh báo từ SENSOR DATA');
+    const response = await apiClient.post(
+      '/api/check-sensor-based-alert',
+      {
+        userId,
+        sendEmail,
+      }
+    );
+    return response.data;
+  } catch (error) {
+    console.error('Error checking sensor-based alert:', error);
+    throw error;
+  }
+};
+
 export default {
   checkUserLocationsAndAlert,
+  checkSensorBasedAlert,
   getUserLocations,
   checkMultipleUsersLocations,
   getUserLocationStats,

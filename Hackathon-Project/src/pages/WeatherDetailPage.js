@@ -25,10 +25,18 @@ const WeatherDetailPage = () => {
   }, []);
 
   // Get user data for personalized alerts
-  const { locations } = usePersonalizedAlert(user?.uid);
+  const { locations, fetchLocations } = usePersonalizedAlert(user?.uid, false);
+  
+  // ✅ Tự động load locations khi user đăng nhập
+  useEffect(() => {
+    if (user?.uid) {
+      console.log('🔵 Loading locations for user:', user.uid);
+      fetchLocations(user.uid);
+    }
+  }, [user?.uid, fetchLocations]);
   
   // Get sensors data for real-time monitoring
-  const { dangerousSensors } = useFirebaseSensors(true, 10000);
+  const { dangerousSensors } = useFirebaseSensors(false, 10000); // ✅ TẮT auto-refresh
 
   const renderFeatureContent = () => {
     switch (activeFeature) {

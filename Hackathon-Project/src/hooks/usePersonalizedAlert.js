@@ -5,7 +5,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { personalizedAlertApi } from '../api';
 
-export const usePersonalizedAlert = (userId = null) => {
+export const usePersonalizedAlert = (userId = null, autoFetch = false) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [locations, setLocations] = useState([]);
@@ -125,13 +125,19 @@ export const usePersonalizedAlert = (userId = null) => {
   );
 
   /**
-   * Auto fetch locations when userId changes
+   * Auto fetch locations when userId changes (chỉ khi autoFetch = true)
    */
   useEffect(() => {
+    if (!autoFetch) {
+      console.log('⏭️ User Locations: Không fetch (autoFetch = false)');
+      return;
+    }
+    
     if (userId) {
+      console.log('📍 User Locations: Fetch locations cho user...');
       fetchLocations(userId);
     }
-  }, [userId, fetchLocations]);
+  }, [userId, autoFetch, fetchLocations]);
 
   /**
    * Reset states

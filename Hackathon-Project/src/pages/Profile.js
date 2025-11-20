@@ -50,6 +50,11 @@ const ProfilePage = () => {
   const [newLocAddress, setNewLocAddress] = useState('');
   const [isAddingLoc, setIsAddingLoc] = useState(false);
 
+  // Notification Settings
+  const [emailNotification, setEmailNotification] = useState(null);
+  const [telegramNotification, setTelegramNotification] = useState(null);
+  const [notificationLoaded, setNotificationLoaded] = useState(false);
+
   // Location Categories configuration
   const locationCategories = [
       { id: 'home', label: 'Nhà', icon: <Home size={20} /> },
@@ -89,12 +94,29 @@ const ProfilePage = () => {
       const result = await userProfileService.getUserProfile(userId);
       if (result.success) {
         setProfile(result.data);
+        // Load notification settings
+        if (result.data.notificationSettings) {
+          setEmailNotification(result.data.notificationSettings.email ?? true);
+          setTelegramNotification(result.data.notificationSettings.telegram ?? false);
+        } else {
+          // Default settings nếu chưa có
+          setEmailNotification(true);
+          setTelegramNotification(false);
+        }
+        setNotificationLoaded(true);
       } else {
          // Default profile
          setProfile({ stats: { savedLocationsCount: 0, alertsReceived: 0, floodReports: 0 } });
+         setEmailNotification(true);
+         setTelegramNotification(false);
+         setNotificationLoaded(true);
       }
     } catch (error) {
       console.error("Error loading profile:", error);
+      // Fallback to default
+      setEmailNotification(true);
+      setTelegramNotification(false);
+      setNotificationLoaded(true);
     } finally {
       setLoading(false);
     }
@@ -120,6 +142,33 @@ const ProfilePage = () => {
     setLoadingActivities(false);
   };
 
+  const saveNotificationSettings = async (email, telegram) => {
+    if (!user?.uid) return;
+    try {
+      const result = await userProfileService.updateNotificationSettings(user.uid, {
+        email,
+        telegram
+      });
+      if (result.success) {
+        console.log('✅ Notification settings saved');
+      }
+    } catch (error) {
+      console.error('❌ Error saving notification settings:', error);
+    }
+  };
+
+  const handleEmailToggle = () => {
+    const newValue = !emailNotification;
+    setEmailNotification(newValue);
+    saveNotificationSettings(newValue, telegramNotification);
+  };
+
+  const handleTelegramToggle = () => {
+    const newValue = !telegramNotification;
+    setTelegramNotification(newValue);
+    saveNotificationSettings(emailNotification, newValue);
+  };
+
   const handleLogout = async () => {
     const result = await authService.logout();
     if (result.success) {
@@ -138,12 +187,20 @@ const ProfilePage = () => {
       name: newLocName,
       address: newLocAddress,
       type: selectedCategory,
-      // status will be determined by backend or default to safe
-      status: 'safe', 
-      coordinates: null // In a real app, we'd geocode the address
+      status: 'safe',
+      coords: {
+        lat: 16.0125,
+        lon: 108.2442
+      },
+      alertRadius: 20,
+      priority: 'medium'
     };
 
+    console.log('🔵 Đang lưu địa điểm:', newLocation);
+    
     const result = await userProfileService.addLocation(user.uid, newLocation);
+    console.log('🔵 Kết quả lưu:', result);
+    
     if (result.success) {
       await userProfileService.addActivity(user.uid, {
         type: "location_added",
@@ -156,6 +213,10 @@ const ProfilePage = () => {
       setShowAddModal(false);
       setNewLocName('');
       setNewLocAddress('');
+      alert('✅ Đã lưu địa điểm thành công!');
+    } else {
+      console.error('❌ Lỗi lưu địa điểm:', result.error);
+      alert(`❌ Không thể lưu: ${result.error}`);
     }
     setIsAddingLoc(false);
   };
@@ -414,10 +475,123 @@ const ProfilePage = () => {
                     )}
 
                     {activeTab === 'settings' && (
-                         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-                            <div className="flex flex-col items-center justify-center h-[400px] text-slate-400">
-                                <div className="w-20 h-20 bg-white/50 rounded-full flex items-center justify-center mb-4 border border-white/60 shadow-sm"><Settings size={32} /></div>
-                                <p>Chức năng cài đặt đang được cập nhật giao diện.</p>
+                         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-4">
+                            {/* Notification Settings Card */}
+                            <div className="bg-white/60 backdrop-blur-xl rounded-3xl p-6 shadow-lg border border-white/60">
+                                <div className="flex items-center gap-3 mb-6">
+                                    <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center shadow-md">
+                                        <Bell className="text-white" size={20} />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-lg font-bold text-slate-800">Thông báo</h3>
+                                        <p className="text-xs text-slate-500">Cấu hình kênh nhận cảnh báo</p>
+                                    </div>
+                                </div>
+
+                                {!notificationLoaded ? (
+                                    <div className="flex items-center justify-center py-8">
+                                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+                                    </div>
+                                ) : (
+                                <div className="space-y-4">
+                                    {/* Email Toggle */}
+                                    <div className="flex items-center justify-between p-4 bg-white/50 rounded-2xl border border-slate-200/50 hover:border-indigo-300 transition-all">
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-12 h-12 bg-gradient-to-br from-red-500 to-pink-600 rounded-xl flex items-center justify-center shadow-md">
+                                                <Mail className="text-white" size={20} />
+                                            </div>
+                                            <div>
+                                                <div className="font-bold text-slate-800">Email</div>
+                                                <div className="text-xs text-slate-500">Nhận cảnh báo qua email</div>
+                                            </div>
+                                        </div>
+                                        <button 
+                                            onClick={handleEmailToggle}
+                                            className={`relative w-16 h-8 rounded-full transition-colors duration-300 shadow-inner ${
+                                                emailNotification 
+                                                    ? 'bg-gradient-to-r from-green-400 to-emerald-500' 
+                                                    : 'bg-slate-300'
+                                            }`}
+                                        >
+                                            <div className={`absolute top-1 left-1 w-6 h-6 bg-white rounded-full shadow-md transform transition-transform duration-300 ${
+                                                emailNotification ? 'translate-x-8' : 'translate-x-0'
+                                            }`}></div>
+                                        </button>
+                                    </div>
+
+                                    {/* Telegram Toggle */}
+                                    <div className="flex items-center justify-between p-4 bg-white/50 rounded-2xl border border-slate-200/50 hover:border-blue-300 transition-all">
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-xl flex items-center justify-center shadow-md">
+                                                <svg className="w-6 h-6 text-white" viewBox="0 0 24 24" fill="currentColor">
+                                                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.74-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .38z"/>
+                                                </svg>
+                                            </div>
+                                            <div>
+                                                <div className="font-bold text-slate-800">Telegram</div>
+                                                <div className="text-xs text-slate-500">Nhận cảnh báo qua Telegram Bot</div>
+                                            </div>
+                                        </div>
+                                        <button 
+                                            onClick={handleTelegramToggle}
+                                            className={`relative w-16 h-8 rounded-full transition-colors duration-300 shadow-inner ${
+                                                telegramNotification 
+                                                    ? 'bg-gradient-to-r from-blue-400 to-cyan-500' 
+                                                    : 'bg-slate-300'
+                                            }`}
+                                        >
+                                            <div className={`absolute top-1 left-1 w-6 h-6 bg-white rounded-full shadow-md transform transition-transform duration-300 ${
+                                                telegramNotification ? 'translate-x-8' : 'translate-x-0'
+                                            }`}></div>
+                                        </button>
+                                    </div>
+                                </div>
+                                )}
+
+                                {/* Status Info */}
+                                {notificationLoaded && (emailNotification || telegramNotification) && (
+                                    <div className="mt-4 p-3 bg-indigo-50/50 border border-indigo-200/50 rounded-xl">
+                                        <div className="flex items-start gap-2 text-xs text-indigo-700">
+                                            <ShieldCheck size={14} className="mt-0.5 flex-shrink-0" />
+                                            <span>
+                                                Bạn đang nhận cảnh báo qua: <span className="font-bold">
+                                                    {emailNotification && telegramNotification ? 'Email & Telegram' : emailNotification ? 'Email' : 'Telegram'}
+                                                </span>
+                                            </span>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {notificationLoaded && !emailNotification && !telegramNotification && (
+                                    <div className="mt-4 p-3 bg-amber-50/50 border border-amber-200/50 rounded-xl">
+                                        <div className="flex items-start gap-2 text-xs text-amber-700">
+                                            <Bell size={14} className="mt-0.5 flex-shrink-0" />
+                                            <span className="font-medium">
+                                                Bạn chưa bật kênh thông báo nào. Hãy chọn ít nhất 1 kênh để nhận cảnh báo!
+                                            </span>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Account Settings Card */}
+                            <div className="bg-white/60 backdrop-blur-xl rounded-3xl p-6 shadow-lg border border-white/60">
+                                <div className="flex items-center gap-3 mb-6">
+                                    <div className="w-10 h-10 bg-gradient-to-br from-slate-500 to-slate-700 rounded-xl flex items-center justify-center shadow-md">
+                                        <Settings className="text-white" size={20} />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-lg font-bold text-slate-800">Tài khoản</h3>
+                                        <p className="text-xs text-slate-500">Quản lý thông tin cá nhân</p>
+                                    </div>
+                                </div>
+
+                                <div className="flex flex-col items-center justify-center py-8 text-slate-400">
+                                    <div className="w-16 h-16 bg-white/50 rounded-full flex items-center justify-center mb-3 border border-white/60 shadow-sm">
+                                        <Settings size={28} />
+                                    </div>
+                                    <p className="text-sm">Các tùy chọn khác đang được phát triển</p>
+                                </div>
                             </div>
                          </div>
                     )}

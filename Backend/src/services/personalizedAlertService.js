@@ -69,65 +69,59 @@ class PersonalizedAlertService {
 
   /**
    * Kiểm tra địa điểm có bị ảnh hưởng bởi ngập không
+   * Logic mới: Check TRỰC TIẾP tại tọa độ location, không tìm vùng ngập gần nhất
    */
   async checkLocationFloodRisk(location, minRiskLevel = 1) {
     try {
       const { lat, lon } = location.coords;
 
-      // 1. Lấy dự báo thời tiết
+      console.log(`🔍 Checking flood risk tại "${location.name}" (${lat}, ${lon})`);
+
+      // 1. Lấy dự báo thời tiết TẠI location này
       const hourlyForecast = await weatherService.getHourlyForecast(lat, lon);
 
       if (!hourlyForecast || hourlyForecast.length === 0) {
+        console.log(`❌ Không có dự báo thời tiết cho "${location.name}"`);
         return null;
       }
 
-      // 2. Phân tích ngập lụt
+      console.log(`✅ Nhận được ${hourlyForecast.length} giờ dự báo cho "${location.name}"`);
+
+      // 2. Phân tích ngập lụt TRỰC TIẾP tại location này
       const predictions = floodPredictionService.analyzeForecast(
         hourlyForecast,
-        { maxAreas: 10 }
+        { maxAreas: 1 } // Chỉ cần 1 prediction cho location này
       );
 
       if (!predictions || predictions.length === 0) {
+        console.log(`✅ "${location.name}" an toàn - không có nguy cơ ngập`);
         return null;
       }
 
-      // 3. Tìm khu vực ngập trong bán kính cảnh báo
-      const alertRadius = location.alertRadius || 1000; // mặc định 1km
-      const nearbyFloods = [];
+      // 3. Lấy prediction có risk cao nhất
+      const prediction = predictions[0];
+      
+      console.log(`⚠️ "${location.name}" - Risk Level: ${prediction.prediction.floodRisk}`);
 
-      for (const pred of predictions) {
-        const distance = floodPredictionService.calculateDistance(
-          lat,
-          lon,
-          pred.area.coords.lat,
-          pred.area.coords.lon
-        );
-
-        const distanceMeters = distance * 1000; // km -> m
-
-        if (
-          distanceMeters <= alertRadius &&
-          pred.prediction.floodRisk >= minRiskLevel
-        ) {
-          nearbyFloods.push({
-            ...pred,
-            distance: Math.round(distanceMeters),
-          });
-        }
+      // 4. Kiểm tra có vượt ngưỡng minRiskLevel không
+      if (prediction.prediction.floodRisk >= minRiskLevel) {
+        console.log(`🚨 "${location.name}" CẦN CẢNH BÁO! (Risk ${prediction.prediction.floodRisk} >= ${minRiskLevel})`);
+        return {
+          area: {
+            name: location.name, // Dùng tên location thay vì area name
+            coords: { lat, lon }, // Dùng tọa độ location
+          },
+          prediction: prediction.prediction,
+          distance: 0, // Distance = 0 vì check trực tiếp tại location
+        };
       }
 
-      // Sắp xếp theo độ nguy hiểm và khoảng cách
-      nearbyFloods.sort((a, b) => {
-        if (a.prediction.floodRisk !== b.prediction.floodRisk) {
-          return b.prediction.floodRisk - a.prediction.floodRisk;
-        }
-        return a.distance - b.distance;
-      });
+      console.log(`✅ "${location.name}" an toàn - Risk ${prediction.prediction.floodRisk} < ${minRiskLevel}`);
+      return null;
 
-      return nearbyFloods.length > 0 ? nearbyFloods[0] : null;
     } catch (error) {
       console.error(
-        `Lỗi kiểm tra ngập cho địa điểm ${location.name}:`,
+        `❌ Lỗi kiểm tra ngập cho địa điểm ${location.name}:`,
         error
       );
       return null;
@@ -236,13 +230,12 @@ THÔNG TIN NGƯỜI DÙNG:
 - Địa chỉ: ${location.address}
 - Mức ưu tiên: ${location.priority}
 
-THÔNG TIN KHU VỰC NGẬP:
-- Tên khu vực ngập: ${floodArea.name} (${floodArea.district})
-- Khoảng cách từ ${locationTypeLabel}: ${distance}m
+CẢNH BÁO NGẬP TẠI ĐỊA ĐIỂM NÀY:
+- Tên địa điểm: ${location.name}
 - Cấp độ nguy hiểm: ${severityLabels[prediction.floodRisk]}
 - Điểm rủi ro: ${prediction.riskScore}/100
 
-DỮ LIỆU DỰ BÁO:
+DỮ LIỆU DỰ BÁO TẠI "${location.name}":
 - Lượng mưa 3h tới: ${prediction.details.rainfall3h}mm
 - Lượng mưa 6h tới: ${prediction.details.rainfall6h}mm
 - Lượng mưa 12h tới: ${prediction.details.rainfall12h}mm
@@ -262,7 +255,7 @@ YÊU CẦU TẠO EMAIL:
 2. **Nội dung (htmlBody):**
    - Chào hỏi cá nhân với tên "${userName}"
    - Nhấn mạnh địa điểm CỤ THỂ: "${locationTypeLabel} ${location.name}"
-   - Nói rõ khoảng cách: "${distance}m từ ${locationTypeLabel}"
+   - Nói rõ đây là cảnh báo TRỰC TIẾP tại địa điểm này
    - Dùng HTML đơn giản: <p>, <b>, <ul>, <li>, <br>
    - Dùng style inline cho màu: 
      * Nguy hiểm cao: color:red

@@ -17,6 +17,7 @@ import Register from "./pages/Register";
 import Profile from "./pages/Profile";
 import AdminPage from "./pages/AdminPage";
 import APIDemo from "./pages/APIDemo";
+import SensorsPage from "./pages/SensorsPage";
 import authService from "./services/authService";
 import floodData from "./data/floodProneAreas.json";
 import TopNavigation from "./components/TopNavigation";
@@ -382,6 +383,9 @@ function App() {
 
         {/* API Demo Page - PUBLIC (for testing) */}
         <Route path="/api-demo" element={<APIDemo />} />
+
+        {/* Sensors Page - PUBLIC - Hiển thị 2 sensors SENSOR_ROAD và SENSOR_SEWER */}
+        <Route path="/sensors" element={<SensorsPage />} />
       </Routes>
     </Router>
   );

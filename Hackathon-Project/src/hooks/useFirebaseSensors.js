@@ -61,18 +61,38 @@ export const useFirebaseSensors = (autoRefresh = false, refreshInterval = 5000) 
    * Auto refresh sensors
    */
   useEffect(() => {
+    // ✅ CHỈ fetch khi autoRefresh = true
+    if (!autoRefresh) {
+      console.log('⏭️ Firebase Sensors: Không fetch (đã tắt)');
+      // Clear sensors khi tắt
+      setSensors(null);
+      return;
+    }
+
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('🔥 FIREBASE SENSORS: Bắt đầu fetch dữ liệu sensor IoT');
+    console.log(`⏱️  Interval: ${refreshInterval / 1000}s`);
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    
     // Initial fetch
     fetchSensors();
 
-    // Setup auto refresh
-    if (autoRefresh) {
-      const cleanup = firebaseApi.watchAllSensors((data) => {
-        setSensors(data.data);
-        setLastUpdate(new Date());
-      }, refreshInterval);
+    // Setup auto refresh với cleanup
+    let cleanupFn = null;
+    cleanupFn = firebaseApi.watchAllSensors((data) => {
+      setSensors(data.data);
+      setLastUpdate(new Date());
+    }, refreshInterval);
 
-      return cleanup;
-    }
+    // Cleanup khi unmount hoặc autoRefresh thay đổi
+    return () => {
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log('🛑 FIREBASE SENSORS: Dừng watch interval');
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      if (cleanupFn) {
+        cleanupFn();
+      }
+    };
   }, [autoRefresh, refreshInterval, fetchSensors]);
 
   return {

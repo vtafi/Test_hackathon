@@ -362,6 +362,55 @@ class UserProfileService {
       };
     }
   }
+
+  /**
+   * Cập nhật notification settings
+   */
+  async updateNotificationSettings(userId, settings) {
+    try {
+      const settingsRef = ref(db, `userProfiles/${userId}/notificationSettings`);
+      await set(settingsRef, {
+        email: settings.email,
+        telegram: settings.telegram,
+        updatedAt: Date.now(),
+      });
+
+      return {
+        success: true,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
+  }
+
+  /**
+   * Cập nhật auto-alert settings
+   */
+  async updateAutoAlertSettings(userId, settings) {
+    try {
+      const settingsRef = ref(db, `userProfiles/${userId}/autoAlertSettings`);
+      await set(settingsRef, {
+        isWeatherAlertEnabled: settings.isWeatherAlertEnabled ?? false,
+        isSensorAlertEnabled: settings.isSensorAlertEnabled ?? false,
+        checkInterval: settings.checkInterval ?? 15,
+        waterLevelThreshold: settings.waterLevelThreshold ?? 50,
+        riskLevelThreshold: settings.riskLevelThreshold ?? 1,
+        updatedAt: Date.now(),
+      });
+
+      return {
+        success: true,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
+  }
 }
 
 const userProfileService = new UserProfileService();

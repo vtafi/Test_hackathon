@@ -24,12 +24,14 @@ class FirebaseClient {
       }
 
       if (!serviceAccountPath) {
-        throw new Error("FIREBASE_SERVICE_ACCOUNT_KEY chưa được cấu hình trong .env");
+        throw new Error(
+          "FIREBASE_SERVICE_ACCOUNT_KEY chưa được cấu hình trong .env"
+        );
       }
 
       // Resolve path tương đối từ root project
       const keyPath = path.resolve(serviceAccountPath);
-      
+
       // Require trực tiếp file JSON (như docs Firebase)
       const serviceAccount = require(keyPath);
 
@@ -43,14 +45,16 @@ class FirebaseClient {
       console.log(`📁 Service Account: ${path.basename(keyPath)}`);
     } catch (error) {
       console.error("❌ Lỗi khởi tạo Firebase:", error.message);
-      
-      if (error.code === 'MODULE_NOT_FOUND') {
+
+      if (error.code === "MODULE_NOT_FOUND") {
         console.error("\n💡 File serviceAccountKey.json không tìm thấy!");
-        console.error("1. Download từ Firebase Console > Project Settings > Service Accounts");
+        console.error(
+          "1. Download từ Firebase Console > Project Settings > Service Accounts"
+        );
         console.error("2. Lưu vào Backend/configs/serviceAccountKey.json");
         console.error("3. Kiểm tra đường dẫn trong .env");
       }
-      
+
       throw error;
     }
   }

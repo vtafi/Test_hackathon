@@ -51,9 +51,13 @@ export const useWeatherOverlay = (map, mapReady, isVisible = false) => {
     const fetchRainfall = async () => {
       if (!isVisible || rainfallData || isLoading) return;
 
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log('🗺️ WEATHER OVERLAY: Bắt đầu fetch rainfall data cho map');
       setIsLoading(true);
       try {
         const data = await getAllDistrictRainfall();
+        console.log('✅ WEATHER OVERLAY: Đã fetch xong rainfall data');
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         setRainfallData(data);
       } catch (error) {
         console.error("❌ Lỗi fetch rainfall data:", error);

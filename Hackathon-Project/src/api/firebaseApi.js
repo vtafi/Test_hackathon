@@ -11,6 +11,7 @@ import { API_ENDPOINTS } from './config';
  */
 export const getAllSensors = async () => {
   try {
+    console.log('📡 API REQUEST: GET /api/firebase/sensors');
     const response = await apiClient.get(API_ENDPOINTS.FIREBASE_SENSORS);
     return response.data;
   } catch (error) {

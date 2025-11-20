@@ -8,6 +8,7 @@ const {
 } = require("./utils/middleware");
 const firebaseClient = require("./integrations/firebaseClient");
 const iotListener = require("./iot/iotListener");
+const schedulerService = require("./services/schedulerService");
 
 // Validate environment variables
 config.validateEnv();
@@ -23,7 +24,7 @@ app.use(requestLogger);
 app.get("/", (req, res) => {
   res.json({
     message: "🌊 Flood Alert API is running!",
-    version: "2.0.0",
+    version: "2.1.0",
     endpoints: {
       health: "GET /",
       testEmail: "POST /api/send-test-email",
@@ -36,6 +37,14 @@ app.get("/", (req, res) => {
       checkUserLocations: "POST /api/check-user-locations-alert",
       getUserLocations: "GET /api/user-locations/:userId",
       analyzeWeather: "POST /api/analyze-weather-alert",
+      // Alert Settings
+      getAlertSettings: "GET /api/alert-settings/:userId",
+      updateAlertSettings: "PUT /api/alert-settings/:userId",
+      toggleAlertSettings: "POST /api/alert-settings/:userId/toggle",
+      deleteAlertSettings: "DELETE /api/alert-settings/:userId",
+      getAlertLogs: "GET /api/alert-settings/:userId/logs",
+      testAlert: "POST /api/alert-settings/:userId/test",
+      schedulerStatus: "GET /api/scheduler/status",
     },
   });
 });
@@ -59,6 +68,15 @@ if (config.firebaseServiceAccountKey && config.firebaseDatabaseURL) {
       iotListener.start(config.alertEmailRecipients);
       console.log("🔥 Firebase IoT Listener đã bật");
     }
+
+    // ==========================================
+    // ⏰ SCHEDULER SERVICE - Auto Alert
+    // ==========================================
+    // Khởi động scheduler service để tự động check và gửi cảnh báo
+    schedulerService.start().catch((error) => {
+      console.error("❌ Lỗi khởi động Scheduler Service:", error);
+    });
+    
   } catch (error) {
     console.error("❌ Firebase initialization failed:", error.message);
     console.log(
@@ -70,6 +88,19 @@ if (config.firebaseServiceAccountKey && config.firebaseDatabaseURL) {
     "ℹ️ Firebase chưa cấu hình. Các API Firebase sẽ không hoạt động."
   );
 }
+
+// Graceful shutdown
+process.on("SIGTERM", () => {
+  console.log("\n👋 SIGTERM received. Shutting down gracefully...");
+  schedulerService.stop();
+  process.exit(0);
+});
+
+process.on("SIGINT", () => {
+  console.log("\n👋 SIGINT received. Shutting down gracefully...");
+  schedulerService.stop();
+  process.exit(0);
+});
 
 // Start server
 const PORT = config.port;
