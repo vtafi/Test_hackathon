@@ -1,4 +1,4 @@
-/**
+﻿/**
  * TelegramQRCode Component
  * Hiển thị QR code để người dùng quét và truy cập Telegram Bot
  */
