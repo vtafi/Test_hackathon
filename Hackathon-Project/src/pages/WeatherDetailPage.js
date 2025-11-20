@@ -82,18 +82,7 @@ const WeatherDetailPage = () => {
       
       case 'auto-alert':
         return (
-          <div className="feature-content-wrapper">
-            <div className="flex items-center justify-between mb-6">
-              <button 
-                className="flex items-center gap-2 text-slate-600 hover:text-blue-600 transition-colors font-medium"
-                onClick={() => setActiveFeature(null)}
-              >
-                <i className="fa-solid fa-arrow-left"></i> Quay lại
-              </button>
-              <h2 className="text-xl font-bold text-slate-800">🤖 Hệ thống tự động</h2>
-            </div>
-            <AutoAlertSystem />
-          </div>
+          <AutoAlertSystem onBack={() => setActiveFeature(null)} />
         );
       
       default:
@@ -102,7 +91,7 @@ const WeatherDetailPage = () => {
   };
 
   return (
-    <div className="min-h-screen p-4 md:p-8 relative bg-[#EEF2FF]">
+    <div className="h-screen overflow-y-auto custom-scrollbar p-4 md:p-8 relative bg-[#EEF2FF]">
       {/* Blobs - Fixed position to stay during scroll */}
       <div className="fixed top-[-10%] left-[-10%] w-96 h-96 bg-blue-400 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob z-0"></div>
       <div className="fixed top-[-10%] right-[-10%] w-96 h-96 bg-purple-400 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-2000 z-0"></div>

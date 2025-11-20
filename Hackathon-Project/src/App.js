@@ -18,8 +18,7 @@ import Profile from "./pages/Profile";
 import APIDemo from "./pages/APIDemo";
 import authService from "./services/authService";
 import floodData from "./data/floodProneAreas.json";
-import GradientTabs from "./components/GradientTabs";
-import UserDropdown from "./components/UserDropdown";
+import TopNavigation from "./components/TopNavigation";
 
 // Icons cho GradientTabs
 const MapIcon = ({ className }) => (
@@ -88,129 +87,7 @@ const ProtectedRoute = ({ children, user }) => {
   return children;
 };
 
-// Navigation Component (cần useNavigate nên phải bên trong Router)
-const Navigation = ({ user, onLogout }) => {
-  const navigate = useNavigate();
-  const [weatherDropdownOpen, setWeatherDropdownOpen] = useState(false);
-  const dropdownRef = React.useRef(null);
-
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setWeatherDropdownOpen(false);
-      }
-    };
-
-    if (weatherDropdownOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-      return () => {
-        document.removeEventListener("mousedown", handleClickOutside);
-      };
-    }
-  }, [weatherDropdownOpen]);
-
-  if (user) {
-    // Nếu đã login: Hiển thị tabs + user dropdown
-    const tabs = [
-      {
-        id: "map",
-        title: "Bản đồ",
-        icon: MapIcon,
-        gradient: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-      },
-      {
-        id: "weather",
-        title: "Thời tiết",
-        icon: WeatherIcon,
-        gradient: "linear-gradient(135deg, #60a5fa 0%, #a78bfa 100%)",
-      },
-    ];
-
-    const handleTabChange = (tab) => {
-      if (tab.id === "map") {
-        navigate("/");
-        setWeatherDropdownOpen(false);
-      }
-      if (tab.id === "weather") {
-        setWeatherDropdownOpen(!weatherDropdownOpen);
-      }
-    };
-
-    return (
-      <div className="navigation-wrapper-with-user" ref={dropdownRef}>
-        <GradientTabs
-          tabs={tabs}
-          onChange={handleTabChange}
-          activeTabId="map"
-        />
-        <div className="user-dropdown-wrapper">
-          <UserDropdown user={user} onLogout={onLogout} />
-        </div>
-
-        {/* Weather Dropdown */}
-        {weatherDropdownOpen && (
-          <div className="weather-dropdown-container">
-            <WeatherDropdown />
-          </div>
-        )}
-      </div>
-    );
-  } else {
-    // Nếu chưa login: Hiển thị tabs với login button
-    const tabs = [
-      {
-        id: "map",
-        title: "Bản đồ",
-        icon: MapIcon,
-        gradient: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-      },
-      {
-        id: "weather",
-        title: "Thời tiết",
-        icon: WeatherIcon,
-        gradient: "linear-gradient(135deg, #60a5fa 0%, #a78bfa 100%)",
-      },
-      {
-        id: "login",
-        title: "Đăng nhập",
-        icon: LoginIcon,
-        gradient: "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)",
-      },
-    ];
-
-    const handleTabChange = (tab) => {
-      if (tab.id === "map") {
-        navigate("/");
-        setWeatherDropdownOpen(false);
-      }
-      if (tab.id === "weather") {
-        setWeatherDropdownOpen(!weatherDropdownOpen);
-      }
-      if (tab.id === "login") {
-        navigate("/login");
-        setWeatherDropdownOpen(false);
-      }
-    };
-
-    return (
-      <div className="navigation-wrapper" ref={dropdownRef}>
-        <GradientTabs
-          tabs={tabs}
-          onChange={handleTabChange}
-          activeTabId="map"
-        />
-
-        {/* Weather Dropdown */}
-        {weatherDropdownOpen && (
-          <div className="weather-dropdown-container">
-            <WeatherDropdown />
-          </div>
-        )}
-      </div>
-    );
-  }
-};
+// Navigation Component đã được thay thế bằng TopNavigation với UI mới
 
 function App() {
   const [places, setPlaces] = useState([]);
@@ -386,11 +263,6 @@ function App() {
           path="/"
           element={
             <div className="App">
-              {/* Gradient Navigation */}
-              <div className="app-navigation-gradient">
-                <Navigation user={user} onLogout={handleLogout} />
-              </div>
-
               {/* Main Content - Fullscreen Map */}
               <main className="App-main fullscreen">
                 {/* Loading State */}
@@ -419,13 +291,18 @@ function App() {
 
                 {/* Success State - Fullscreen Map */}
                 {!loading && !error && places.length > 0 && (
-                  <div className="map-container-fullscreen">
-                    <MapViewRefactored
-                      places={places}
-                      apiKey={API_KEY}
-                      floodZones={floodZones}
-                    />
-                  </div>
+                  <>
+                    {/* Top Navigation - Modern UI */}
+                    <TopNavigation user={user} onLogout={handleLogout} />
+                    
+                    <div className="map-container-fullscreen">
+                      <MapViewRefactored
+                        places={places}
+                        apiKey={API_KEY}
+                        floodZones={floodZones}
+                      />
+                    </div>
+                  </>
                 )}
               </main>
 

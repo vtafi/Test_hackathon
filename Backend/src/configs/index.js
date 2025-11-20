@@ -30,7 +30,7 @@ function validateEnv() {
 }
 
 module.exports = {
-  port: process.env.PORT || 3001,
+  port: process.env.PORT || 4000,
   emailUser: process.env.EMAIL_USER,
   emailPass: process.env.EMAIL_PASS,
   emailFrom: process.env.EMAIL_FROM,

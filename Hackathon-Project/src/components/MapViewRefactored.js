@@ -27,15 +27,12 @@ import {
   FLOOD_COLORS,
   MAP_CONFIG,
 } from "../utils/routeConstants";
-import RouteControls from "./MapView/components/RouteControls";
-import RouteAlternatives from "./MapView/components/RouteAlternatives";
-import RouteInfo from "./MapView/components/RouteInfo";
 import FloodWarning from "./MapView/components/FloodWarning";
-import RouteHint from "./MapView/components/RouteHint";
 import RouteSearchPanel from "./RouteSearchPanel";
 import MapControls from "./MapControls";
 import RainfallLegend from "./RainfallLegend";
 import FloodLegend from "./FloodLegend";
+import RouteResultsPanel from "./RouteResultsPanel";
 import "./MapViewRefactored.css";
 
 const MapViewRefactored = ({ places, apiKey, floodZones = [] }) => {
@@ -47,6 +44,7 @@ const MapViewRefactored = ({ places, apiKey, floodZones = [] }) => {
   const [routingMode, setRoutingMode] = useState(true); // Mặc định bật search mode
   const [floodZonesVisible, setFloodZonesVisible] = useState(true);
   const [weatherOverlayVisible, setWeatherOverlayVisible] = useState(false);
+  const [isLayersCollapsed, setIsLayersCollapsed] = useState(false);
 
   // ========== CUSTOM HOOKS ==========
   const {
@@ -348,6 +346,8 @@ const MapViewRefactored = ({ places, apiKey, floodZones = [] }) => {
    */
   const handleClearRoute = useCallback(() => {
     clearRoute();
+    // Khi xóa route, mở rộng lại layers panel
+    setIsLayersCollapsed(false);
     if (routeGroup.current) {
       removeObject(routeGroup.current);
       routeGroup.current = null;
@@ -371,6 +371,9 @@ const MapViewRefactored = ({ places, apiKey, floodZones = [] }) => {
 
       setRouteStart(startPoint);
       setRouteEnd(endPoint);
+
+      // Tự động collapse layers panel khi tìm route
+      setIsLayersCollapsed(true);
 
       // Focus map to route area
       const midLat = (startPoint.lat + endPoint.lat) / 2;
@@ -459,16 +462,30 @@ const MapViewRefactored = ({ places, apiKey, floodZones = [] }) => {
     <div className="map-view">
       <div ref={mapRef} className="map-container" />
 
-      {/* Map Layer Controls */}
-      <MapControls
-        onToggleFloodZones={setFloodZonesVisible}
-        floodZonesVisible={floodZonesVisible}
-        floodZonesCount={floodZones?.length || 0}
-        onToggleWeatherOverlay={setWeatherOverlayVisible}
-        weatherOverlayVisible={weatherOverlayVisible}
-        onToggleRouting={toggleRoutingMode}
-        routingMode={routingMode}
-      />
+      {/* RIGHT SIDEBAR CONTAINER: Layers + Route Results */}
+      <div className="right-sidebar-container">
+        <MapControls
+          onToggleFloodZones={setFloodZonesVisible}
+          floodZonesVisible={floodZonesVisible}
+          floodZonesCount={floodZones?.length || 0}
+          onToggleWeatherOverlay={setWeatherOverlayVisible}
+          weatherOverlayVisible={weatherOverlayVisible}
+          onToggleRouting={toggleRoutingMode}
+          routingMode={routingMode}
+          isCollapsed={isLayersCollapsed}
+          onToggleCollapse={setIsLayersCollapsed}
+        />
+
+        {/* Route Results Panel - Modern UI */}
+        {routingMode && allRoutes.length > 0 && (
+          <RouteResultsPanel
+            routes={allRoutes}
+            selectedIndex={selectedRouteIndex}
+            onSelectRoute={selectRoute}
+            onClearRoute={handleClearRoute}
+          />
+        )}
+      </div>
 
       {/* Rainfall Legend - Only show when weather overlay is visible */}
       {weatherOverlayVisible && <RainfallLegend />}
@@ -488,20 +505,7 @@ const MapViewRefactored = ({ places, apiKey, floodZones = [] }) => {
         />
       )}
 
-      {/* Routing Controls */}
-      {routingMode && allRoutes.length > 0 && (
-        <div className="routing-controls">
-          <div className="routing-instructions">
-            <FloodWarning warning={routeWarning} />
-            <RouteAlternatives
-              routes={allRoutes}
-              selectedIndex={selectedRouteIndex}
-              onSelectRoute={selectRoute}
-            />
-            <RouteInfo routeInfo={routeInfo} onClear={handleClearRoute} />
-          </div>
-        </div>
-      )}
+      {/* Zoom Controls Removed */}
     </div>
   );
 };
