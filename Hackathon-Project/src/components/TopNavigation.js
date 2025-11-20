@@ -12,14 +12,17 @@ import {
   User, 
   Settings, 
   LogOut,
-  Activity
+  Activity,
+  QrCode
 } from 'lucide-react';
+import TelegramQRCode from "./TelegramQRCode";
 import "./TopNavigation.css";
 
 const TopNavigation = ({ user, onLogout }) => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('map');
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showQRModal, setShowQRModal] = useState(false);
   const userMenuRef = useRef(null);
 
   // Close menu khi click outside
@@ -52,6 +55,9 @@ const TopNavigation = ({ user, onLogout }) => {
         break;
       case 'weather':
         navigate('/weather-detail');
+        break;
+      case 'qrcode':
+        setShowQRModal(true);
         break;
       case 'profile':
         navigate('/profile');
@@ -128,6 +134,10 @@ const TopNavigation = ({ user, onLogout }) => {
                   <Cloud size={18} className="menu-icon sky" />
                   <span>Thời tiết chi tiết</span>
                 </button>
+                <button onClick={() => handleMenuClick('qrcode')} className="user-menu-item">
+                  <QrCode size={18} className="menu-icon telegram" />
+                  <span>QR Code Telegram Bot</span>
+                </button>
                 
                 <div className="menu-separator"></div>
                 
@@ -161,6 +171,12 @@ const TopNavigation = ({ user, onLogout }) => {
           Đăng nhập
         </button>
       )}
+
+      {/* QR Code Modal */}
+      <TelegramQRCode 
+        showModal={showQRModal}
+        onClose={() => setShowQRModal(false)}
+      />
     </div>
   );
 };
