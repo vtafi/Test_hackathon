@@ -11,6 +11,9 @@ const {
   listenToFloodSensors,
   listenToFirestoreFloodSensors,
 } = require("./firebaseAdmin");
+const weatherService = require("./services/weatherService");
+const floodPredictionService = require("./services/floodPredictionService");
+const personalizedAlertService = require("./services/personalizedAlertService");
 require("dotenv").config();
 
 const app = express();
@@ -503,6 +506,255 @@ FORMAT BẮT BUỘC: Trả về **DUY NHẤT** một đối tượng JSON với 
 });
 
 // ==========================================
+// 🌧️ PHÂN TÍCH DỮ LIỆU THỜI TIẾT + AI
+// ==========================================
+app.post("/api/analyze-weather-alert", async (req, res) => {
+  try {
+    const {
+      lat,
+      lon,
+      areaId,
+      to,
+      minRiskLevel = 1,
+      includeAllAreas = false,
+    } = req.body || {};
+
+    const latitude =
+      typeof lat === "string" ? Number.parseFloat(lat) : Number(lat);
+    const longitude =
+      typeof lon === "string" ? Number.parseFloat(lon) : Number(lon);
+
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+      return res.status(400).json({
+        success: false,
+        error: "Thiếu hoặc sai định dạng lat/lon",
+      });
+    }
+
+    const hourlyForecast = await weatherService.getHourlyForecast(
+      latitude,
+      longitude
+    );
+
+    if (!hourlyForecast.length) {
+      return res.status(502).json({
+        success: false,
+        error:
+          "Không nhận được dữ liệu dự báo từ OpenWeather. Vui lòng thử lại sau.",
+      });
+    }
+
+    const predictions = floodPredictionService.analyzeForecast(hourlyForecast, {
+      maxAreas: includeAllAreas
+        ? floodPredictionService.getAllFloodProneAreas().length
+        : 5,
+    });
+
+    if (!predictions.length) {
+      return res.json({
+        success: true,
+        message: "Không phát hiện nguy cơ ngập dựa trên dữ liệu hiện tại",
+        analysis: {
+          forecastSamples: hourlyForecast.length,
+          predictions: [],
+          input: { lat: latitude, lon: longitude },
+        },
+      });
+    }
+
+    let selectedArea = floodPredictionService.getAreaById(areaId);
+    const nearestInfo = floodPredictionService.findNearestArea(
+      latitude,
+      longitude
+    );
+
+    if (!selectedArea && nearestInfo) {
+      selectedArea = nearestInfo.area;
+    }
+
+    if (!selectedArea) {
+      selectedArea = predictions[0].area;
+    }
+
+    const selectedPrediction =
+      predictions.find((entry) => entry.area.id === selectedArea.id) ||
+      predictions[0];
+
+    const riskThreshold = Number.isFinite(Number(minRiskLevel))
+      ? Number(minRiskLevel)
+      : 1;
+
+    const analysis = {
+      area: selectedPrediction.area,
+      prediction: selectedPrediction.prediction,
+      nearestArea: nearestInfo,
+      forecastSamples: hourlyForecast.length,
+      input: {
+        lat: latitude,
+        lon: longitude,
+        riskThreshold,
+      },
+    };
+
+    if (includeAllAreas) {
+      analysis.topPredictions = predictions;
+    }
+
+    const shouldTriggerAlert =
+      selectedPrediction.prediction.floodRisk >= riskThreshold;
+
+    if (!shouldTriggerAlert) {
+      return res.json({
+        success: true,
+        message:
+          "Không kích hoạt cảnh báo vì cấp độ nguy cơ thấp hơn ngưỡng yêu cầu",
+        analysis,
+      });
+    }
+
+    if (!process.env.GEMINI_API_KEY) {
+      return res.status(500).json({
+        success: false,
+        error: "GEMINI_API_KEY chưa được cấu hình trong backend",
+      });
+    }
+
+    const severityLabels = ["AN TOÀN", "CẢNH BÁO", "NGUY HIỂM", "NGHIÊM TRỌNG"];
+    const intensityLabels = ["nhẹ", "trung bình", "nặng", "rất nặng"];
+
+    const { area, prediction } = selectedPrediction;
+    const intensityLabel =
+      intensityLabels[prediction.details.intensity] || "không xác định";
+
+    const aiPrompt = `
+Bạn là một hệ thống AI chuyên tạo cảnh báo ngập lụt khẩn cấp bằng tiếng Việt.
+
+THÔNG TIN KHU VỰC:
+- Tên khu vực: ${area.name} (${area.district})
+- Tọa độ: ${area.coords.lat}, ${area.coords.lon}
+- Độ cao địa hình: ${area.elevation} m
+- Khả năng thoát nước: ${area.drainageCapacity} mm/h
+- Ngưỡng cảnh báo (mm/3h): vàng=${area.threshold.warning}, cam=${
+      area.threshold.danger
+    }, đỏ=${area.threshold.critical}
+
+DỮ LIỆU DỰ BÁO MƯA:
+- Tổng lượng mưa 3 giờ tới: ${prediction.details.rainfall3h} mm
+- Tổng lượng mưa 6 giờ tới: ${prediction.details.rainfall6h} mm
+- Tổng lượng mưa 12 giờ tới: ${prediction.details.rainfall12h} mm
+- Cường độ mưa: ${intensityLabel}
+- Điểm rủi ro tổng hợp: ${prediction.riskScore}/100
+- Cấp độ nguy hiểm hệ thống: ${severityLabels[prediction.floodRisk]}
+- Dự báo độ sâu ngập: ${prediction.details.predictedDepth} cm
+- Ước tính thời gian ngập: ${prediction.details.estimatedDuration} phút
+
+KHYẾN NGHỊ HỆ THỐNG: ${prediction.recommendation}
+
+YÊU CẦU ĐẦU RA:
+1. Xác định cấp độ nguy hiểm (thấp/trung bình/cao) và tốc độ nước dâng (nhanh/chậm/ổn định) dựa trên dữ liệu.
+2. Soạn nội dung email dưới 150 từ, định dạng HTML đơn giản (dùng <p>, <ul>, <li>, <b>, <br>, KHÔNG dùng Markdown).
+3. Đưa ra hành động cụ thể cho người dân và chính quyền.
+4. Ngôn ngữ khẩn cấp, rõ ràng, bằng tiếng Việt chuẩn.
+
+TRẢ VỀ JSON THUẦN: {"subject": "...", "htmlBody": "..."}
+`;
+
+    const model = genAI.getGenerativeModel({
+      model: "gemini-2.5-flash",
+      generationConfig: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: "object",
+          properties: {
+            subject: {
+              type: "string",
+              description:
+                "Tiêu đề email cảnh báo ví dụ: 'CẢNH BÁO NGẬP LỤT - Đường 2/9'",
+            },
+            htmlBody: {
+              type: "string",
+              description: "Nội dung email đã định dạng HTML đơn giản",
+            },
+          },
+          required: ["subject", "htmlBody"],
+        },
+      },
+    });
+
+    const result = await model.generateContent(aiPrompt);
+    const response = await result.response;
+
+    let generatedAlert;
+    const rawText = response.text();
+    try {
+      generatedAlert = JSON.parse(rawText);
+    } catch (error) {
+      const jsonMatch =
+        rawText.match(/```json\n?([\s\S]*?)\n?```/) ||
+        rawText.match(/```\n?([\s\S]*?)\n?```/);
+      if (jsonMatch) {
+        generatedAlert = JSON.parse(jsonMatch[1]);
+      } else {
+        throw new Error("Không thể phân tích JSON từ phản hồi Gemini");
+      }
+    }
+
+    console.log(
+      "✅ Gemini AI tạo cảnh báo thời tiết:",
+      generatedAlert.subject || "(không có subject)"
+    );
+
+    const recipientList = to
+      ? Array.isArray(to)
+        ? to
+        : [to]
+      : process.env.ALERT_EMAIL_RECIPIENTS
+      ? process.env.ALERT_EMAIL_RECIPIENTS.split(",")
+      : [];
+
+    const emailResults = [];
+    for (const recipient of recipientList) {
+      const trimmed = recipient.trim();
+      if (!trimmed) continue;
+
+      try {
+        const emailResult = await sendAIFloodAlert(trimmed, generatedAlert);
+        emailResults.push({ to: trimmed, ...emailResult });
+      } catch (error) {
+        emailResults.push({
+          to: trimmed,
+          success: false,
+          error: error.message,
+        });
+      }
+    }
+
+    if (!recipientList.length) {
+      console.warn(
+        "⚠️ Không có email nhận cảnh báo. Cấu hình ALERT_EMAIL_RECIPIENTS hoặc truyền 'to' trong request."
+      );
+    }
+
+    return res.json({
+      success: true,
+      alert: generatedAlert,
+      analysis,
+      emails: emailResults,
+    });
+  } catch (error) {
+    console.error("❌ Lỗi phân tích thời tiết bằng AI:", error);
+    return res.status(500).json({
+      success: false,
+      error: error.message,
+      fallback: {
+        subject: "⚠️ CẢNH BÁO NGUY CƠ NGẬP LỤT",
+        htmlBody: `<p>Không thể tạo email AI. Vui lòng theo dõi sát tình hình thời tiết tại khu vực của bạn.</p>`,
+      },
+    });
+  }
+});
+
+// ==========================================
 // 🤖 GEMINI AI - Tạo cảnh báo ngập lụt thông minh
 // ==========================================
 app.post("/api/generate-flood-alert", async (req, res) => {
@@ -551,7 +803,7 @@ FORMAT BẮT BUỘC: Trả về **DUY NHẤT** một đối tượng JSON với 
 
     // Gọi Gemini AI
     const model = genAI.getGenerativeModel({
-      model: "gemini-1.5-pro",
+      model: "gemini-2.5-flash",
       generationConfig: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -620,6 +872,172 @@ FORMAT BẮT BUỘC: Trả về **DUY NHẤT** một đối tượng JSON với 
           req.body.current_percent
         }%<br><br>Vui lòng theo dõi tình hình và giữ an toàn.`,
       },
+    });
+  }
+});
+
+// ==========================================
+// 🎯 CẢNH BÁO CÁ NHÂN HÓA - Theo Địa Điểm User
+// ==========================================
+app.post("/api/check-user-locations-alert", async (req, res) => {
+  try {
+    const {
+      userId,
+      minRiskLevel = 1,
+      sendEmail: shouldSendEmail = true,
+    } = req.body;
+
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        error: "Thiếu userId",
+      });
+    }
+
+    console.log(`🔍 Đang phân tích địa điểm cho user: ${userId}`);
+
+    // 1. Phân tích tất cả địa điểm của user
+    const analysis = await personalizedAlertService.analyzeUserLocations(
+      userId,
+      minRiskLevel
+    );
+
+    if (analysis.affectedLocations === 0) {
+      return res.json({
+        success: true,
+        message: "Tất cả địa điểm của bạn đều an toàn",
+        ...analysis,
+      });
+    }
+
+    console.log(
+      `⚠️ Phát hiện ${analysis.affectedLocations}/${analysis.totalLocations} địa điểm có nguy cơ ngập`
+    );
+
+    // 2. Tạo cảnh báo AI cho từng địa điểm
+    const emailResults = [];
+
+    for (const alert of analysis.alerts) {
+      try {
+        // Tạo prompt cá nhân hóa
+        const aiPrompt = personalizedAlertService.createPersonalizedPrompt(
+          analysis.user,
+          alert
+        );
+
+        // Gọi Gemini AI
+        const model = genAI.getGenerativeModel({
+          model: "gemini-2.5-flash",
+          generationConfig: {
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: "object",
+              properties: {
+                subject: { type: "string" },
+                htmlBody: { type: "string" },
+              },
+              required: ["subject", "htmlBody"],
+            },
+          },
+        });
+
+        const result = await model.generateContent(aiPrompt);
+        const generatedAlert = JSON.parse(result.response.text());
+
+        console.log(
+          `✅ AI tạo cảnh báo cho "${alert.location.name}":`,
+          generatedAlert.subject
+        );
+
+        // Gửi email nếu được yêu cầu
+        let emailResult = { success: false };
+        if (shouldSendEmail && analysis.user.email) {
+          emailResult = await sendAIFloodAlert(
+            analysis.user.email,
+            generatedAlert
+          );
+        }
+
+        // Lưu log
+        await personalizedAlertService.saveAlertLog(userId, alert, {
+          ...emailResult,
+          subject: generatedAlert.subject,
+        });
+
+        // Cập nhật status location
+        const statusMap = {
+          0: "safe",
+          1: "warning",
+          2: "danger",
+          3: "critical",
+        };
+        await personalizedAlertService.updateLocationStatus(
+          userId,
+          alert.location.id,
+          statusMap[alert.prediction.floodRisk] || "warning",
+          new Date().toISOString()
+        );
+
+        emailResults.push({
+          locationName: alert.location.name,
+          alert: generatedAlert,
+          emailSent: emailResult.success,
+          distance: alert.distance,
+          floodRisk: alert.prediction.floodRisk,
+        });
+      } catch (error) {
+        console.error(
+          `❌ Lỗi tạo cảnh báo cho ${alert.location.name}:`,
+          error.message
+        );
+        emailResults.push({
+          locationName: alert.location.name,
+          error: error.message,
+          emailSent: false,
+        });
+      }
+    }
+
+    return res.json({
+      success: true,
+      message: `Đã tạo ${emailResults.length} cảnh báo cá nhân hóa`,
+      analysis: {
+        userId: analysis.userId,
+        user: analysis.user,
+        totalLocations: analysis.totalLocations,
+        affectedLocations: analysis.affectedLocations,
+      },
+      alerts: emailResults,
+    });
+  } catch (error) {
+    console.error("❌ Lỗi check user locations:", error);
+    return res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+});
+
+// ==========================================
+// 📍 API Lấy Thông Tin User Locations
+// ==========================================
+app.get("/api/user-locations/:userId", async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    const locations = await personalizedAlertService.getUserLocations(userId);
+
+    return res.json({
+      success: true,
+      userId: userId,
+      count: locations.length,
+      locations: locations,
+    });
+  } catch (error) {
+    console.error("❌ Lỗi lấy user locations:", error);
+    return res.status(500).json({
+      success: false,
+      error: error.message,
     });
   }
 });

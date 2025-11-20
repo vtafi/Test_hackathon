@@ -15,7 +15,7 @@ const MapControls = ({
   onToggleWeatherOverlay,
   weatherOverlayVisible = false,
   onToggleRouting,
-  routingEnabled = false,
+  routingMode = false,
 }) => {
   const [isExpanded, setIsExpanded] = useState(true);
 
@@ -86,7 +86,7 @@ const MapControls = ({
             <Switch id="notification-toggle" checked={false} disabled={true} />
           </div>
 
-          {/* Dẫn đường tránh ngập - Now Active */}
+          {/* Dẫn đường tránh ngập */}
           <div className="control-item">
             <div className="control-item-info">
               <span className="control-icon">🗺️</span>
@@ -98,7 +98,7 @@ const MapControls = ({
             </div>
             <Switch
               id="routing-toggle"
-              checked={routingEnabled}
+              checked={routingMode}
               onCheckedChange={onToggleRouting}
             />
           </div>

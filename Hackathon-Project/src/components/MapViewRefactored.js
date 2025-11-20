@@ -311,12 +311,17 @@ const MapViewRefactored = ({ places, apiKey, floodZones = [] }) => {
       requestLocation()
         .then((location) => {
           setRouteStart(location);
-          setCenterAndZoom(location.lat, location.lng, MAP_CONFIG.userLocationZoom);
-          alert('✅ Đã lấy vị trí của bạn! Bây giờ hãy click vào bản đồ để chọn điểm đến.');
+          setCenterAndZoom(
+            location.lat,
+            location.lng,
+            MAP_CONFIG.userLocationZoom
+          );
+          alert(
+            "✅ Đã lấy vị trí của bạn! Bây giờ hãy click vào bản đồ để chọn điểm đến."
+          );
         })
         .catch((error) => {
-          console.error('Failed to get location:', error);
-          alert('⚠️ Không thể lấy vị trí của bạn. Vui lòng cho phép truy cập vị trí trong trình duyệt.');
+          console.error("Failed to get location:", error);
         });
     } else {
       // Tắt routing - clear all
@@ -326,7 +331,15 @@ const MapViewRefactored = ({ places, apiKey, floodZones = [] }) => {
         routeGroup.current = null;
       }
     }
-  }, [routingMode, requestLocation, setRouteStart, setCenterAndZoom, clearRoute, removeObject]);
+  }, [
+    routingMode,
+    requestLocation,
+    setRouteStart,
+    setCenterAndZoom,
+    clearRoute,
+    removeObject,
+    setRoutingMode,
+  ]);
 
   /**
    * Handle clear route
@@ -364,28 +377,28 @@ const MapViewRefactored = ({ places, apiKey, floodZones = [] }) => {
       if (userLocation) {
         if (!routeEnd || allRoutes.length > 0) {
           setRouteEnd(point);
-          console.log('📍 Destination set:', point);
+          console.log("📍 Destination set:", point);
           calculateRoute(userLocation, point);
         }
       } else {
         // Chưa có user location, chọn thủ công
         if (!routeStart) {
           setRouteStart(point);
-          console.log('📍 Start point set:', point);
+          console.log("📍 Start point set:", point);
         } else if (!routeEnd) {
           setRouteEnd(point);
-          console.log('📍 End point set:', point);
+          console.log("📍 End point set:", point);
           calculateRoute(routeStart, point);
         } else {
           // Reset và bắt đầu lại
           handleClearRoute();
           setRouteStart(point);
-          console.log('📍 New start point:', point);
+          console.log("📍 New start point:", point);
         }
       }
     };
 
-    const cleanup = addEventListener('tap', handleMapClick);
+    const cleanup = addEventListener("tap", handleMapClick);
     return cleanup;
   }, [
     mapReady,
@@ -401,9 +414,7 @@ const MapViewRefactored = ({ places, apiKey, floodZones = [] }) => {
     handleClearRoute,
     addEventListener,
     screenToGeo,
-  ]);
-
-  // ========== RENDER ==========
+  ]); // ========== RENDER ==========
 
   if (!apiKey) {
     return (
@@ -429,7 +440,7 @@ const MapViewRefactored = ({ places, apiKey, floodZones = [] }) => {
         onToggleWeatherOverlay={setWeatherOverlayVisible}
         weatherOverlayVisible={weatherOverlayVisible}
         onToggleRouting={toggleRoutingMode}
-        routingEnabled={routingMode}
+        routingMode={routingMode}
       />
 
       {/* Rainfall Legend - Only show when weather overlay is visible */}
@@ -438,15 +449,9 @@ const MapViewRefactored = ({ places, apiKey, floodZones = [] }) => {
       {/* Flood Legend - Only show when flood zones are visible */}
       {floodZonesVisible && <FloodLegend isVisible={floodZonesVisible} />}
 
-      {/* Routing Controls - Enabled for flood-aware navigation */}
+      {/* Routing Controls */}
       {routingMode && (
         <div className="routing-controls">
-          <RouteControls
-            routingMode={routingMode}
-            onToggle={toggleRoutingMode}
-            locationPermission={locationPermission}
-          />
-
           <div className="routing-instructions">
             <RouteHint
               userLocation={userLocation}

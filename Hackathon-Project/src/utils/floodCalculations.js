@@ -49,7 +49,7 @@ export const isPointInFloodZone = (lat, lng, floodZones) => {
 
 /**
  * Tìm các flood zones mà một điểm nằm trong đó
- * @param {number} lat - Latitude điểm cần kiểm tra  
+ * @param {number} lat - Latitude điểm cần kiểm tra
  * @param {number} lng - Longitude điểm cần kiểm tra
  * @param {Array} floodZones - Danh sách các flood zones
  * @returns {Array} Danh sách các zones chứa điểm này
@@ -71,10 +71,14 @@ export const getFloodZonesAtPoint = (lat, lng, floodZones) => {
  * Kiểm tra route có đi qua các flood zones không
  * @param {string} polyline - Flexible polyline của route
  * @param {Array} floodZones - Danh sách flood zones
- * @param {number} sampleInterval - Số điểm sample (default: 50)
+ * @param {number} sampleInterval - Số điểm sample (default: 5 - rất chi tiết)
  * @returns {Array} Danh sách các flood zones mà route đi qua
  */
-export const checkRouteFloodIntersection = (polyline, floodZones, sampleInterval = 50) => {
+export const checkRouteFloodIntersection = (
+  polyline,
+  floodZones,
+  sampleInterval = 5
+) => {
   if (!window.H || !polyline || !floodZones || floodZones.length === 0) {
     return [];
   }
@@ -84,7 +88,8 @@ export const checkRouteFloodIntersection = (polyline, floodZones, sampleInterval
     const coords = lineString.getLatLngAltArray();
     const affectedZonesSet = new Set();
 
-    // Sample points dọc theo route
+    // Sample points DÀY ĐẶC dọc theo route để không bỏ sót vùng ngập nhỏ
+    // sampleInterval = 5 → check ~mỗi 50-100m
     for (let i = 0; i < coords.length; i += 3 * sampleInterval) {
       const lat = coords[i];
       const lng = coords[i + 1];
@@ -98,7 +103,7 @@ export const checkRouteFloodIntersection = (polyline, floodZones, sampleInterval
     // Convert Set back to array of objects
     return Array.from(affectedZonesSet).map((zoneStr) => JSON.parse(zoneStr));
   } catch (error) {
-    console.error('Error checking route flood intersection:', error);
+    console.error("Error checking route flood intersection:", error);
     return [];
   }
 };
@@ -112,7 +117,10 @@ export const checkRouteFloodIntersection = (polyline, floodZones, sampleInterval
 export const analyzeRoutesFlood = (routes, floodZones) => {
   return routes.map((route, index) => {
     const section = route.sections[0];
-    const affectedZones = checkRouteFloodIntersection(section.polyline, floodZones);
+    const affectedZones = checkRouteFloodIntersection(
+      section.polyline,
+      floodZones
+    );
     const distance = section.summary.length / 1000; // km
     const duration = section.summary.duration / 60; // minutes
 
@@ -134,7 +142,7 @@ export const analyzeRoutesFlood = (routes, floodZones) => {
  * @param {string} priority - Tiêu chí ưu tiên ('floodCount', 'distance', 'duration')
  * @returns {Object} Route tốt nhất
  */
-export const selectBestRoute = (analyzedRoutes, priority = 'floodCount') => {
+export const selectBestRoute = (analyzedRoutes, priority = "floodCount") => {
   if (!analyzedRoutes || analyzedRoutes.length === 0) return null;
 
   let bestRoute = analyzedRoutes[0];
@@ -145,13 +153,16 @@ export const selectBestRoute = (analyzedRoutes, priority = 'floodCount') => {
     if (analysis.floodCount < bestRoute.floodCount) {
       bestRoute = analysis;
       bestIndex = index;
-    } 
+    }
     // Nếu bằng số flood zones, so sánh theo priority
     else if (analysis.floodCount === bestRoute.floodCount) {
-      if (priority === 'distance' && analysis.distance < bestRoute.distance) {
+      if (priority === "distance" && analysis.distance < bestRoute.distance) {
         bestRoute = analysis;
         bestIndex = index;
-      } else if (priority === 'duration' && analysis.duration < bestRoute.duration) {
+      } else if (
+        priority === "duration" &&
+        analysis.duration < bestRoute.duration
+      ) {
         bestRoute = analysis;
         bestIndex = index;
       }
@@ -176,8 +187,65 @@ export const formatFloodZones = (zones) => {
   }));
 };
 
+/**
+ * Chuyển đổi flood zones thành avoid areas cho HERE API
+ * Format: bbox:lat1,lng1;lat2,lng2
+ * @param {Array} floodZones - Danh sách flood zones
+ * @param {number} bufferPercent - Buffer thêm % để đảm bảo tránh xa (default: 20%)
+ * @returns {string} String avoid areas cho HERE API
+ */
+export const convertFloodZonesToAvoidAreas = (
+  floodZones,
+  bufferMeters = 100
+) => {
+  if (!floodZones || floodZones.length === 0) return "";
 
+  // HERE API limit: tối đa 10 avoid areas
+  const maxAreas = 10;
 
+  // Ưu tiên vùng ngập high risk trước
+  const sortedZones = [...floodZones].sort((a, b) => {
+    const riskOrder = { high: 3, medium: 2, low: 1 };
+    return (riskOrder[b.riskLevel] || 0) - (riskOrder[a.riskLevel] || 0);
+  });
 
+  const zonesToAvoid = sortedZones.slice(0, maxAreas);
 
+  const bboxes = zonesToAvoid.map((zone) => {
+    const lat = zone.coords?.lat || zone.lat;
+    const lng = zone.coords?.lng || zone.lng;
+    const radius = zone.radius || 300; // meters - mặc định 300m nếu không có radius
 
+    // Thêm buffer cố định (100m)
+    const bufferedRadius = radius + bufferMeters; // Tính bounding box (xấp xỉ)
+    // 1 degree latitude ≈ 111km
+    // 1 degree longitude ≈ 111km * cos(latitude)
+    const latDelta = bufferedRadius / 1000 / 111; // degrees
+    const lngDelta =
+      bufferedRadius / 1000 / (111 * Math.cos((lat * Math.PI) / 180)); // degrees
+
+    const minLat = (lat - latDelta).toFixed(6);
+    const minLng = (lng - lngDelta).toFixed(6);
+    const maxLat = (lat + latDelta).toFixed(6);
+    const maxLng = (lng + lngDelta).toFixed(6);
+
+    // Format: bbox:west,south,east,north theo HERE API v8
+    return `bbox:${minLng},${minLat},${maxLng},${maxLat}`;
+  });
+
+  return bboxes.join("|");
+};
+
+/**
+ * Lọc flood zones theo mức độ rủi ro
+ * @param {Array} floodZones - Danh sách flood zones
+ * @param {Array} riskLevels - Các mức độ cần lọc ['high', 'medium', 'low']
+ * @returns {Array} Flood zones đã lọc
+ */
+export const filterFloodZonesByRisk = (
+  floodZones,
+  riskLevels = ["high", "medium"]
+) => {
+  if (!floodZones || floodZones.length === 0) return [];
+  return floodZones.filter((zone) => riskLevels.includes(zone.riskLevel));
+};
