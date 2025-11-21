@@ -28,7 +28,7 @@ const VEHICLE_MODES = [
     enabled: true,
   },
   { id: "bike", icon: <Bike size={20} />, label: "Xe đạp", enabled: true },
-  { id: "motor", icon: <Car size={20} />, label: "Xe máy", enabled: false },
+  { id: "motor", icon: <Car size={20} />, label: "Xe máy", enabled: true },
 ];
 
 const RouteSearchPanel = ({
@@ -49,19 +49,21 @@ const RouteSearchPanel = ({
   const startInputRef = useRef(null);
   const endInputRef = useRef(null);
   const suggestionsRef = useRef(null);
+  const hasAutoFilledRef = useRef(false);
 
   const { suggestions, autocomplete, lookup, clearSuggestions } =
     useHereSearch(apiKey);
 
-  // Auto-fill vị trí hiện tại
+  // Auto-fill vị trí hiện tại (chỉ 1 lần)
   useEffect(() => {
-    if (userLocation && !startQuery) {
+    if (userLocation && !startQuery && !hasAutoFilledRef.current) {
       setStartQuery("Vị trí của bạn");
       setStartPoint({
         lat: userLocation.lat,
         lng: userLocation.lng,
         name: "Vị trí của bạn",
       });
+      hasAutoFilledRef.current = true;
     }
   }, [userLocation, startQuery]);
 
@@ -131,6 +133,7 @@ const RouteSearchPanel = ({
         name: "Vị trí của bạn",
       });
       clearSuggestions();
+      setActiveInput(null);
     }
   };
 
@@ -159,14 +162,19 @@ const RouteSearchPanel = ({
   // Click outside to close suggestions
   useEffect(() => {
     const handleClickOutside = (event) => {
+      // Check if click is on any input
+      const clickedOnInput =
+        startInputRef.current?.contains(event.target) ||
+        endInputRef.current?.contains(event.target);
+
+      // Only clear if clicked outside both inputs and suggestions
       if (
         suggestionsRef.current &&
         !suggestionsRef.current.contains(event.target) &&
-        !startInputRef.current?.contains(event.target) &&
-        !endInputRef.current?.contains(event.target)
+        !clickedOnInput
       ) {
         clearSuggestions();
-        setActiveInput(null);
+        // Don't set activeInput to null here - let onFocus handle it
       }
     };
 
@@ -212,21 +220,88 @@ const RouteSearchPanel = ({
               type="text"
               value={startQuery}
               onChange={(e) => handleInputChange("start", e.target.value)}
-              onFocus={() => setActiveInput("start")}
+              onFocus={() => {
+                console.log("🟢 Start input focused, query:", startQuery);
+                setActiveInput("start");
+                if (startQuery.length >= 2) {
+                  autocomplete(
+                    startQuery,
+                    userLocation || { lat: 16.0544, lng: 108.2022 }
+                  );
+                } else {
+                  clearSuggestions();
+                }
+              }}
               placeholder="Điểm xuất phát"
               className="glass-input"
             />
             {startQuery && (
               <button
                 className="clear-input-btn"
-                onClick={() => {
+                onClick={(e) => {
+                  e.stopPropagation();
                   setStartQuery("");
                   setStartPoint(null);
+                  clearSuggestions();
+                  // Reset flag để có thể auto-fill lại khi bấm locate
+                  hasAutoFilledRef.current = false;
                 }}
+                type="button"
               >
                 <X size={14} />
               </button>
             )}
+
+            {/* Start Input Dropdown */}
+            {(() => {
+              const shouldRender =
+                suggestions.length > 0 && activeInput === "start";
+              console.log("🟢 Start dropdown:", {
+                shouldRender,
+                suggestionsCount: suggestions.length,
+                activeInput,
+              });
+              return (
+                shouldRender && (
+                  <div className="suggestions-dropdown" ref={suggestionsRef}>
+                    {userLocation && (
+                      <div
+                        className="suggestion-item current-location"
+                        onClick={handleUseCurrentLocation}
+                      >
+                        <div className="suggestion-icon">📍</div>
+                        <div className="suggestion-content">
+                          <div className="suggestion-title">Vị trí của bạn</div>
+                          <div className="suggestion-address">
+                            Sử dụng vị trí hiện tại
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {suggestions.map((suggestion, index) => (
+                      <div
+                        key={suggestion.id || index}
+                        className="suggestion-item"
+                        onClick={() => handleSelectSuggestion(suggestion)}
+                      >
+                        <div className="suggestion-icon">📍</div>
+                        <div className="suggestion-content">
+                          <div className="suggestion-title">
+                            {suggestion.title}
+                          </div>
+                          {suggestion.address && (
+                            <div className="suggestion-address">
+                              {suggestion.address}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )
+              );
+            })()}
           </div>
 
           {/* End Input */}
@@ -237,7 +312,18 @@ const RouteSearchPanel = ({
               type="text"
               value={endQuery}
               onChange={(e) => handleInputChange("end", e.target.value)}
-              onFocus={() => setActiveInput("end")}
+              onFocus={() => {
+                console.log("🔴 End input focused, query:", endQuery);
+                setActiveInput("end");
+                if (endQuery.length >= 2) {
+                  autocomplete(
+                    endQuery,
+                    userLocation || { lat: 16.0544, lng: 108.2022 }
+                  );
+                } else {
+                  clearSuggestions();
+                }
+              }}
               placeholder="Điểm đến"
               className="glass-input"
             />
@@ -247,54 +333,55 @@ const RouteSearchPanel = ({
             {endQuery && (
               <button
                 className="clear-input-btn"
-                onClick={() => {
+                onClick={(e) => {
+                  e.stopPropagation();
                   setEndQuery("");
                   setEndPoint(null);
+                  clearSuggestions();
                 }}
+                type="button"
               >
                 <X size={14} />
               </button>
             )}
+
+            {/* End Input Dropdown */}
+            {(() => {
+              const shouldRender =
+                suggestions.length > 0 && activeInput === "end";
+              console.log("🔴 End dropdown:", {
+                shouldRender,
+                suggestionsCount: suggestions.length,
+                activeInput,
+              });
+              return (
+                shouldRender && (
+                  <div className="suggestions-dropdown">
+                    {suggestions.map((suggestion, index) => (
+                      <div
+                        key={suggestion.id || index}
+                        className="suggestion-item"
+                        onClick={() => handleSelectSuggestion(suggestion)}
+                      >
+                        <div className="suggestion-icon">📍</div>
+                        <div className="suggestion-content">
+                          <div className="suggestion-title">
+                            {suggestion.title}
+                          </div>
+                          {suggestion.address && (
+                            <div className="suggestion-address">
+                              {suggestion.address}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )
+              );
+            })()}
           </div>
         </div>
-
-        {/* Suggestions Dropdown */}
-        {suggestions.length > 0 && activeInput && (
-          <div className="suggestions-dropdown" ref={suggestionsRef}>
-            {activeInput === "start" && userLocation && (
-              <div
-                className="suggestion-item current-location"
-                onClick={handleUseCurrentLocation}
-              >
-                <div className="suggestion-icon">📍</div>
-                <div className="suggestion-content">
-                  <div className="suggestion-title">Vị trí của bạn</div>
-                  <div className="suggestion-address">
-                    Sử dụng vị trí hiện tại
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {suggestions.map((suggestion, index) => (
-              <div
-                key={suggestion.id || index}
-                className="suggestion-item"
-                onClick={() => handleSelectSuggestion(suggestion)}
-              >
-                <div className="suggestion-icon">📍</div>
-                <div className="suggestion-content">
-                  <div className="suggestion-title">{suggestion.title}</div>
-                  {suggestion.address && (
-                    <div className="suggestion-address">
-                      {suggestion.address}
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
 
         <button
           onClick={handleCalculateRoute}
