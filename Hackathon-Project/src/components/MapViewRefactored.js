@@ -33,6 +33,7 @@ import MapControls from "./MapControls";
 import RainfallLegend from "./RainfallLegend";
 import FloodLegend from "./FloodLegend";
 import RouteResultsPanel from "./RouteResultsPanel";
+import LocateMeButton from "./LocateMeButton";
 import "./MapViewRefactored.css";
 
 const MapViewRefactored = ({ places, apiKey, floodZones = [] }) => {
@@ -40,11 +41,13 @@ const MapViewRefactored = ({ places, apiKey, floodZones = [] }) => {
   const markersGroup = useRef(null);
   const floodOverlayGroup = useRef(null);
   const routeGroup = useRef(null);
+  const userMarkerRef = useRef(null);
 
   const [routingMode, setRoutingMode] = useState(true); // Mặc định bật search mode
   const [floodZonesVisible, setFloodZonesVisible] = useState(true);
   const [weatherOverlayVisible, setWeatherOverlayVisible] = useState(false);
   const [isLayersCollapsed, setIsLayersCollapsed] = useState(false);
+  const [isLocatingUser, setIsLocatingUser] = useState(false); // State cho loading GPS
 
   // ========== CUSTOM HOOKS ==========
   const {
@@ -183,6 +186,94 @@ const MapViewRefactored = ({ places, apiKey, floodZones = [] }) => {
     addObject(markersGroup.current);
   }, [mapReady, map, places, addObject, removeObject]);
 
+  // ========== USER LOCATION MARKER & AUTO ZOOM ==========
+
+  useEffect(() => {
+    if (!mapReady || !map || !window.H || !userLocation) {
+      console.log("⏳ Waiting for:", {
+        mapReady,
+        hasMap: !!map,
+        hasH: !!window.H,
+        userLocation,
+      });
+      return;
+    }
+
+    // Xóa marker cũ nếu có
+    if (userMarkerRef.current) {
+      removeObject(userMarkerRef.current);
+      userMarkerRef.current = null;
+    }
+
+    // Chỉ skip nếu đang có ROUTE (cả start và end) và start trùng với userLocation
+    // (vì route visualization sẽ vẽ marker)
+    if (
+      allRoutes &&
+      allRoutes.length > 0 &&
+      routeStart &&
+      Math.abs(routeStart.lat - userLocation.lat) < 0.0001 &&
+      Math.abs(routeStart.lng - userLocation.lng) < 0.0001
+    ) {
+      console.log("⏭️ Skip user marker - route is active with same position");
+      return;
+    }
+
+    // Tạo marker vị trí người dùng
+    const userMarker = createUserLocationMarker(
+      userLocation.lat,
+      userLocation.lng
+    );
+
+    if (userMarker) {
+      addObject(userMarker);
+      userMarkerRef.current = userMarker;
+      console.log("📍 User location marker displayed at:", userLocation);
+
+      // Tự động zoom đến vị trí người dùng (chỉ khi chưa có route)
+      if (!allRoutes || allRoutes.length === 0) {
+        console.log("🎯 Zooming to:", {
+          lat: userLocation.lat,
+          lng: userLocation.lng,
+          zoom: MAP_CONFIG.userLocationZoom,
+        });
+
+        // Sử dụng setTimeout để đảm bảo marker đã được thêm vào map
+        setTimeout(() => {
+          console.log("⏰ Timeout executing, map:", map);
+          if (map && map.getViewModel) {
+            console.log(
+              "🔄 Setting center to:",
+              userLocation.lat,
+              userLocation.lng
+            );
+            // Dùng getViewModel().setLookAtData() - cách chính thống của HERE Maps
+            map.getViewModel().setLookAtData(
+              {
+                position: { lat: userLocation.lat, lng: userLocation.lng },
+                zoom: MAP_CONFIG.userLocationZoom,
+              },
+              true // animate
+            );
+            console.log("✅ Map centered successfully");
+          } else {
+            console.error("❌ Map object invalid:", map);
+          }
+        }, 100);
+      } else {
+        console.log("⏭️ Skip zoom - route exists");
+      }
+    }
+  }, [
+    mapReady,
+    map,
+    userLocation,
+    routeStart,
+    allRoutes,
+    addObject,
+    removeObject,
+    setCenterAndZoom,
+  ]);
+
   // ========== ROUTE VISUALIZATION ==========
 
   useEffect(() => {
@@ -307,22 +398,10 @@ const MapViewRefactored = ({ places, apiKey, floodZones = [] }) => {
     setRoutingMode(newMode);
 
     if (newMode) {
-      // Bật routing - request location
-      requestLocation()
-        .then((location) => {
-          setRouteStart(location);
-          setCenterAndZoom(
-            location.lat,
-            location.lng,
-            MAP_CONFIG.userLocationZoom
-          );
-          alert(
-            "✅ Đã lấy vị trí của bạn! Bây giờ hãy click vào bản đồ để chọn điểm đến."
-          );
-        })
-        .catch((error) => {
-          console.error("Failed to get location:", error);
-        });
+      // Bật routing - CHỈ hiện panel, KHÔNG tự động lấy GPS
+      console.log(
+        "🗺️ Routing mode enabled - Waiting for user to click Locate Me button"
+      );
     } else {
       // Tắt routing - clear all
       clearRoute();
@@ -505,7 +584,63 @@ const MapViewRefactored = ({ places, apiKey, floodZones = [] }) => {
         />
       )}
 
-      {/* Zoom Controls Removed */}
+      {/* Locate Me Button - Google Maps Style */}
+      <LocateMeButton
+        onLocate={() => {
+          console.log("🎯 Locate clicked - userLocation:", userLocation);
+
+          if (userLocation) {
+            // Di chuyển map đến vị trí hiện tại + set làm điểm xuất phát
+            console.log("📍 Centering to:", userLocation.lat, userLocation.lng);
+            if (map) {
+              map.getViewModel().setLookAtData(
+                {
+                  position: { lat: userLocation.lat, lng: userLocation.lng },
+                  zoom: MAP_CONFIG.userLocationZoom,
+                },
+                true
+              );
+              // Set làm điểm xuất phát nếu đang ở routing mode
+              if (routingMode) {
+                setRouteStart(userLocation);
+                console.log("✅ Set as route start point");
+              }
+            }
+          } else {
+            // Yêu cầu quyền truy cập vị trí
+            console.log("📡 Requesting location...");
+            setIsLocatingUser(true); // Bắt đầu loading
+            requestLocation()
+              .then((location) => {
+                console.log("✅ Got location:", location);
+                if (map) {
+                  map.getViewModel().setLookAtData(
+                    {
+                      position: { lat: location.lat, lng: location.lng },
+                      zoom: MAP_CONFIG.userLocationZoom,
+                    },
+                    true
+                  );
+                  // Set làm điểm xuất phát nếu đang ở routing mode
+                  if (routingMode) {
+                    setRouteStart(location);
+                    console.log("✅ Set as route start point");
+                  }
+                }
+                setIsLocatingUser(false); // Kết thúc loading
+              })
+              .catch((error) => {
+                console.error("❌ Error:", error);
+                setIsLocatingUser(false); // Kết thúc loading
+                alert(
+                  "Không thể lấy vị trí của bạn. Vui lòng cho phép truy cập vị trí."
+                );
+              });
+          }
+        }}
+        isLocating={isLocatingUser}
+        hasLocation={!!userLocation}
+      />
     </div>
   );
 };

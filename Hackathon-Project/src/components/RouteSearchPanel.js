@@ -7,23 +7,28 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useHereSearch } from "../hooks/useHereSearch";
 import { TRANSPORT_MODES } from "../utils/routeConstants";
-import { 
-  Car, 
-  Bike, 
-  Navigation, 
-  X, 
-  MapPin, 
-  ArrowRightLeft, 
-  Route
-} from 'lucide-react';
+import {
+  Car,
+  Bike,
+  Navigation,
+  X,
+  MapPin,
+  ArrowRightLeft,
+  Route,
+} from "lucide-react";
 import "./RouteSearchPanel.css";
 
 // Convert TRANSPORT_MODES to new format with icons
 const VEHICLE_MODES = [
-  { id: 'car', icon: <Car size={20} />, label: 'Ô tô', enabled: true },
-  { id: 'walk', icon: <Navigation size={20} className="rotate-90" />, label: 'Đi bộ', enabled: true },
-  { id: 'bike', icon: <Bike size={20} />, label: 'Xe đạp', enabled: true },
-  { id: 'motor', icon: <Car size={20} />, label: 'Xe máy', enabled: false },
+  { id: "car", icon: <Car size={20} />, label: "Ô tô", enabled: true },
+  {
+    id: "walk",
+    icon: <Navigation size={20} className="rotate-90" />,
+    label: "Đi bộ",
+    enabled: true,
+  },
+  { id: "bike", icon: <Bike size={20} />, label: "Xe đạp", enabled: true },
+  { id: "motor", icon: <Car size={20} />, label: "Xe máy", enabled: true },
 ];
 
 const RouteSearchPanel = ({
@@ -44,18 +49,21 @@ const RouteSearchPanel = ({
   const startInputRef = useRef(null);
   const endInputRef = useRef(null);
   const suggestionsRef = useRef(null);
+  const hasAutoFilledRef = useRef(false);
 
-  const { suggestions, autocomplete, lookup, clearSuggestions } = useHereSearch(apiKey);
+  const { suggestions, autocomplete, lookup, clearSuggestions } =
+    useHereSearch(apiKey);
 
-  // Auto-fill vị trí hiện tại
+  // Auto-fill vị trí hiện tại (chỉ 1 lần)
   useEffect(() => {
-    if (userLocation && !startQuery) {
+    if (userLocation && !startQuery && !hasAutoFilledRef.current) {
       setStartQuery("Vị trí của bạn");
       setStartPoint({
         lat: userLocation.lat,
         lng: userLocation.lng,
         name: "Vị trí của bạn",
       });
+      hasAutoFilledRef.current = true;
     }
   }, [userLocation, startQuery]);
 
@@ -125,6 +133,7 @@ const RouteSearchPanel = ({
         name: "Vị trí của bạn",
       });
       clearSuggestions();
+      setActiveInput(null);
     }
   };
 
@@ -153,14 +162,19 @@ const RouteSearchPanel = ({
   // Click outside to close suggestions
   useEffect(() => {
     const handleClickOutside = (event) => {
+      // Check if click is on any input
+      const clickedOnInput =
+        startInputRef.current?.contains(event.target) ||
+        endInputRef.current?.contains(event.target);
+
+      // Only clear if clicked outside both inputs and suggestions
       if (
         suggestionsRef.current &&
         !suggestionsRef.current.contains(event.target) &&
-        !startInputRef.current?.contains(event.target) &&
-        !endInputRef.current?.contains(event.target)
+        !clickedOnInput
       ) {
         clearSuggestions();
-        setActiveInput(null);
+        // Don't set activeInput to null here - let onFocus handle it
       }
     };
 
@@ -179,13 +193,15 @@ const RouteSearchPanel = ({
 
         {/* Vehicle Selector */}
         <div className="vehicle-selector">
-          {VEHICLE_MODES.map(v => (
-            <button 
+          {VEHICLE_MODES.map((v) => (
+            <button
               key={v.id}
               onClick={() => v.enabled && setSelectedMode(v.id)}
               disabled={!v.enabled}
-              className={`vehicle-btn ${selectedMode === v.id ? 'active' : ''} ${!v.enabled ? 'disabled' : ''}`}
-              title={!v.enabled ? 'Sắp ra mắt' : v.label}
+              className={`vehicle-btn ${
+                selectedMode === v.id ? "active" : ""
+              } ${!v.enabled ? "disabled" : ""}`}
+              title={!v.enabled ? "Sắp ra mắt" : v.label}
             >
               {v.icon}
             </button>
@@ -195,96 +211,179 @@ const RouteSearchPanel = ({
         {/* Route Inputs */}
         <div className="route-inputs">
           <div className="route-connector"></div>
-          
+
           {/* Start Input */}
           <div className="route-input-wrapper">
             <div className="route-marker start"></div>
-            <input 
+            <input
               ref={startInputRef}
-              type="text" 
+              type="text"
               value={startQuery}
               onChange={(e) => handleInputChange("start", e.target.value)}
-              onFocus={() => setActiveInput("start")}
+              onFocus={() => {
+                console.log("🟢 Start input focused, query:", startQuery);
+                setActiveInput("start");
+                if (startQuery.length >= 2) {
+                  autocomplete(
+                    startQuery,
+                    userLocation || { lat: 16.0544, lng: 108.2022 }
+                  );
+                } else {
+                  clearSuggestions();
+                }
+              }}
               placeholder="Điểm xuất phát"
-              className="glass-input" 
+              className="glass-input"
             />
             {startQuery && (
-              <button 
+              <button
                 className="clear-input-btn"
-                onClick={() => {
+                onClick={(e) => {
+                  e.stopPropagation();
                   setStartQuery("");
                   setStartPoint(null);
+                  clearSuggestions();
+                  // Reset flag để có thể auto-fill lại khi bấm locate
+                  hasAutoFilledRef.current = false;
                 }}
+                type="button"
               >
                 <X size={14} />
               </button>
             )}
+
+            {/* Start Input Dropdown */}
+            {(() => {
+              const shouldRender =
+                suggestions.length > 0 && activeInput === "start";
+              console.log("🟢 Start dropdown:", {
+                shouldRender,
+                suggestionsCount: suggestions.length,
+                activeInput,
+              });
+              return (
+                shouldRender && (
+                  <div className="suggestions-dropdown" ref={suggestionsRef}>
+                    {userLocation && (
+                      <div
+                        className="suggestion-item current-location"
+                        onClick={handleUseCurrentLocation}
+                      >
+                        <div className="suggestion-icon">📍</div>
+                        <div className="suggestion-content">
+                          <div className="suggestion-title">Vị trí của bạn</div>
+                          <div className="suggestion-address">
+                            Sử dụng vị trí hiện tại
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {suggestions.map((suggestion, index) => (
+                      <div
+                        key={suggestion.id || index}
+                        className="suggestion-item"
+                        onClick={() => handleSelectSuggestion(suggestion)}
+                      >
+                        <div className="suggestion-icon">📍</div>
+                        <div className="suggestion-content">
+                          <div className="suggestion-title">
+                            {suggestion.title}
+                          </div>
+                          {suggestion.address && (
+                            <div className="suggestion-address">
+                              {suggestion.address}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )
+              );
+            })()}
           </div>
-          
+
           {/* End Input */}
           <div className="route-input-wrapper">
             <MapPin size={16} className="route-marker end" />
-            <input 
+            <input
               ref={endInputRef}
-              type="text" 
+              type="text"
               value={endQuery}
               onChange={(e) => handleInputChange("end", e.target.value)}
-              onFocus={() => setActiveInput("end")}
+              onFocus={() => {
+                console.log("🔴 End input focused, query:", endQuery);
+                setActiveInput("end");
+                if (endQuery.length >= 2) {
+                  autocomplete(
+                    endQuery,
+                    userLocation || { lat: 16.0544, lng: 108.2022 }
+                  );
+                } else {
+                  clearSuggestions();
+                }
+              }}
               placeholder="Điểm đến"
-              className="glass-input" 
+              className="glass-input"
             />
             <button className="swap-btn" onClick={handleSwap}>
               <ArrowRightLeft size={14} className="rotate-90" />
             </button>
             {endQuery && (
-              <button 
+              <button
                 className="clear-input-btn"
-                onClick={() => {
+                onClick={(e) => {
+                  e.stopPropagation();
                   setEndQuery("");
                   setEndPoint(null);
+                  clearSuggestions();
                 }}
+                type="button"
               >
                 <X size={14} />
               </button>
             )}
+
+            {/* End Input Dropdown */}
+            {(() => {
+              const shouldRender =
+                suggestions.length > 0 && activeInput === "end";
+              console.log("🔴 End dropdown:", {
+                shouldRender,
+                suggestionsCount: suggestions.length,
+                activeInput,
+              });
+              return (
+                shouldRender && (
+                  <div className="suggestions-dropdown">
+                    {suggestions.map((suggestion, index) => (
+                      <div
+                        key={suggestion.id || index}
+                        className="suggestion-item"
+                        onClick={() => handleSelectSuggestion(suggestion)}
+                      >
+                        <div className="suggestion-icon">📍</div>
+                        <div className="suggestion-content">
+                          <div className="suggestion-title">
+                            {suggestion.title}
+                          </div>
+                          {suggestion.address && (
+                            <div className="suggestion-address">
+                              {suggestion.address}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )
+              );
+            })()}
           </div>
         </div>
 
-        {/* Suggestions Dropdown */}
-        {suggestions.length > 0 && activeInput && (
-          <div className="suggestions-dropdown" ref={suggestionsRef}>
-            {activeInput === "start" && userLocation && (
-              <div
-                className="suggestion-item current-location"
-                onClick={handleUseCurrentLocation}
-              >
-                <div className="suggestion-icon">📍</div>
-                <div className="suggestion-content">
-                  <div className="suggestion-title">Vị trí của bạn</div>
-                  <div className="suggestion-address">Sử dụng vị trí hiện tại</div>
-                </div>
-              </div>
-            )}
-
-            {suggestions.map((suggestion, index) => (
-              <div
-                key={suggestion.id || index}
-                className="suggestion-item"
-                onClick={() => handleSelectSuggestion(suggestion)}
-              >
-                <div className="suggestion-icon">📍</div>
-                <div className="suggestion-content">
-                  <div className="suggestion-title">{suggestion.title}</div>
-                  {suggestion.address && (
-                    <div className="suggestion-address">{suggestion.address}</div>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        <button 
+        <button
           onClick={handleCalculateRoute}
           disabled={!startPoint || !endPoint || loading}
           className="search-route-btn"
@@ -298,21 +397,6 @@ const RouteSearchPanel = ({
             <>Tìm lộ trình an toàn</>
           )}
         </button>
-      </div>
-      
-      {/* Legend Routing */}
-      <div className="glass-panel legend-card">
-        <h4 className="legend-title">Mức độ ngập</h4>
-        <div className="legend-items">
-          <div className="legend-item">
-            <span className="legend-dot orange"></span>
-            <span className="legend-text">Trung bình <span className="legend-detail">(&gt;0.3m)</span></span>
-          </div>
-          <div className="legend-item">
-            <span className="legend-dot green"></span>
-            <span className="legend-text">Thấp <span className="legend-detail">(An toàn)</span></span>
-          </div>
-        </div>
       </div>
     </div>
   );
